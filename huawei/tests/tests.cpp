@@ -1,10 +1,57 @@
 #include "tests.hpp"
+#include "logger/logger.hpp"
+#include "status.hpp"
 #include "strings/mystr.hpp"
+#include "error_handling/my_assert.hpp"
+#include <cstddef>
 
 
-int main()
+typedef int (*test_func_t)(void);
+
+typedef struct 
 {
-    return 0;
+    const char* test_name;
+    test_func_t test;
+} test_struct;
+
+test_struct tests[] = {
+    {
+        .test_name = "Test strcmp",
+        .test=test_strcmp
+    },
+    {
+        .test_name = "Test strcat",
+        .test=test_strcat
+    },
+};
+size_t tests_len = sizeof(tests) / sizeof(tests[0]);
+
+
+int main(int argc, char** argv)
+{
+    assert(argv != NULL);
+    assert(argv[0] != NULL);
+
+    LogTarget log_targets[] = 
+    {
+        {},
+        {"/tmp/log.html"}
+    };
+    size_t log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
+
+    LOG_START(argv[0], log_targets_count, log_targets);
+    int tests_failed = 0, current_test_result = 0;
+    for (size_t i = 0; i < tests_len; ++i)
+    {
+        current_test_result = tests[i].test();
+        tests_failed += current_test_result;
+        if (current_test_result != 0)
+        {
+            LOG_ERROR(MAKE_EXTENDED_ERROR_STRUCT(TEST_FAILED_ERROR, tests[i].test_name));
+        }
+    }
+    LOG_STOP();
+    return tests_failed;
 }
 
 
@@ -48,7 +95,10 @@ int test_puts()
     return 0;
 }
 
-
+int test_strcmp()
+{
+    return 1;
+}
 
 int test_strchr()
 {

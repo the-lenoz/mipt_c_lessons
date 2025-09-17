@@ -8,6 +8,14 @@
             .func_name = __func__,\
             .line_number = __LINE__\
         }
+
+#define MAKE_EXTENDED_ERROR_STRUCT(stat_code, description) {\
+            .status_code = stat_code,\
+            .filename = __FILE__,\
+            .func_name = __func__,\
+            .line_number = __LINE__,\
+            .error_description = description\
+        }
         
 #define MAKE_SUCCESS_STRUCT(data) {.status_code=SUCCESS, .success_data=data}
 

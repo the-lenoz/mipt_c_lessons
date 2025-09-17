@@ -15,6 +15,7 @@ int test_fputs();
 
 int test_puts();
 
+int test_strcmp();
 
 int test_strchr();
 

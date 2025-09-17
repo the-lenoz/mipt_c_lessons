@@ -22,7 +22,7 @@ int mc_puts(const char* str);
 char* mc_strchr( const char* str, int ch );
 size_t mc_strlen( const char* str );
 
-int strcmp ( const char * str1, const char * str2 );
+int mc_strcmp ( const char * str1, const char * str2 );
 
 char* mc_strcpy( char* dest, const char* src );
 char* mc_strncpy( char* dest, const char* src, size_t count );

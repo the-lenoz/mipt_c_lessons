@@ -8,7 +8,7 @@ CFLAGS=-D _DEBUG -g -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-lo
 -Wno-narrowing -Wno-old-style-cast -Wno-varargs -Wstack-protector -fcheck-new -fsized-deallocation -fstack-protector \
 -fstrict-overflow -fno-omit-frame-pointer -Wlarger-than=8192 -Wstack-usage=8192 -pie -fPIE -Wno-format-nonliteral
 
-LIB_SUBDIRS=terminal_decorator error_handling strings 
+LIB_SUBDIRS=terminal_decorator error_handling strings logger
 EXECUTABLE_SUBDIRS=lecture_001
 TEST_SUBDIRS=tests
 
@@ -21,6 +21,7 @@ INCLUDE_PARAMS=$(foreach d, $(INCLUDE), -I$d)
 
 
 .EXPORT_ALL_VARIABLES:
+
 
 .PHONY: docs all clean $(LIB_SUBDIRS) $(EXECUTABLE_SUBDIRS) $(TEST_SUBDIRS)
 

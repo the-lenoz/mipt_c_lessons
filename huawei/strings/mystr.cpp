@@ -80,12 +80,13 @@ size_t mc_strlen( const char* str )
     return end ? (size_t) (end - str) : 0;
 }
 
-int strcmp ( const char * str1, const char * str2 )
+int mc_strcmp ( const char * str1, const char * str2 )
 {
     int status = 0;
     while(*str1 == *str2 && *str1)
     {
         status = *str1++ - *str2++;
+        if (status != 0) return status;
     }
     return status;
 }
