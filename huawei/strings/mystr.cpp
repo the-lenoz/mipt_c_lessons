@@ -286,10 +286,17 @@ int lexycographic_alpha_str_comparator(void* s1, void* s2)
 
 int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
 {
+    assert(s1 != NULL);
+    assert(s2 != NULL);
+
+    printf("Comparator init. s1=%p, s2=%p\n", s1, s2);
+
     my_string str1 = *((my_string*) s1);
     my_string str2 = *((my_string*) s2);
 
-    while (str1.len && !isalpha(*str1.str)) 
+    printf("Comparator started. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
+
+    while (str1.len && !isalpha(*str1.str))
     {
         str1.str++;
         str1.len--;
@@ -302,6 +309,7 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
 
     while (str1.len && str2.len && (*(str1.str) == *(str2.str)))
     {
+        printf("Comparator skip eq. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
         str1.str++;
         str1.len--;
         str2.str++;
@@ -310,5 +318,53 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
     if (str1.len == 0) return -1;
     else if (str2.len == 0) return 1;
 
+    printf("Comparator result. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
     return tolower(*(str1.str)) - tolower(*(str2.str));
+}
+
+int lexycographic_alpha_my_str_reverse_comparator(void* s1, void* s2)
+{
+    assert(s1 != NULL);
+    assert(s2 != NULL);
+
+    my_string str1 = *((my_string*) s1);
+    my_string str2 = *((my_string*) s2);
+
+    str1.str += str1.len - 1;
+    str2.str += str2.len - 1;
+
+    while (str1.len && !isalpha(*str1.str)) 
+    {
+        str1.str--;
+        str1.len--;
+    }
+    while (str2.len && !isalpha(*str2.str)) 
+    {
+        str2.str--;
+        str2.len--;
+    }
+
+    while (str1.len && str2.len && (*(str1.str) == *(str2.str)))
+    {
+        str1.str--;
+        str1.len--;
+        str2.str--;
+        str2.len--;
+    }
+    if (str1.len == 0) return -1;
+    else if (str2.len == 0) return 1;
+
+    return tolower(*(str1.str)) - tolower(*(str2.str));
+}
+
+int is_empty_mystr(my_string s)
+{
+  for (size_t i = 0; i < s.len; ++i)
+  {
+    if (!isspace((unsigned char) *(s.str + i)))
+    {
+        return 0;
+    }    
+  }
+  return 1;
 }

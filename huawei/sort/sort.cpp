@@ -18,11 +18,16 @@ int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t co
     {
         for (size_t j = 0; j < array_len - 1 - i; ++j)
         {
-            if (comparator((char*)array + (j * elem_size), (char*)array + (j * elem_size + elem_size)) * direction < 0)
+            printf("Sort: compairing array[%zu] <> array[%zu]. \n", j, j+1);
+            if (comparator((char*)array + (j * elem_size), (char*)array + ((j+1) * elem_size)) * direction < 0)
             {
-                memccpy(tmp, (char*)array + (j * elem_size), 1, elem_size);
-                memccpy((char*)array + (j * elem_size), (char*)array + (j * elem_size + elem_size), 1, elem_size);
-                memccpy((char*)array + (j * elem_size + elem_size), tmp, 1, elem_size);
+                printf("Exchanging: array[%d] <-> array[%d]\n", (int)j, (int)j+1);
+                memccpy(tmp, ((char*)array) + (j * elem_size), 1, elem_size);
+                printf("Writing to array[%zu]\n", j);
+                memccpy(((char*)array) + (j * elem_size), (char*)array + (j * elem_size + elem_size), 1, elem_size);
+                printf("Writing to array[%zu]\n", j+1);
+                memccpy(((char*)array) + ((j + 1) * elem_size), tmp, 1, elem_size);
+                printf("Replaced\n");
                 replacements++;
             }
         }
