@@ -4,7 +4,7 @@ OBJECTS+= $(foreach x, $(basename $(SOURCES)), $(x).o)
 
 EXTERNAL_OBJECTS=$(foreach x, $(abspath $(addprefix ../, $(LIB_SUBDIRS))), $(shell find $(x) -type f -iname '*.o'))
 
-MAIN_EXECUTABLE=lecture_001
+MAIN_EXECUTABLE=onegin
 
 .PHONY: all
 

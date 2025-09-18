@@ -29,15 +29,17 @@ size_t tests_len = sizeof(tests) / sizeof(tests[0]);
 
 int main(int argc, char** argv)
 {
+    (void)(argc);
+
     assert(argv != NULL);
     assert(argv[0] != NULL);
 
     LogTarget log_targets[] = 
     {
-        {},
+        {}, // stdout
         {"/tmp/log.html"}
     };
-    size_t log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
+    int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 
     LOG_START(argv[0], log_targets_count, log_targets);
     int tests_failed = 0, current_test_result = 0;
@@ -48,9 +50,12 @@ int main(int argc, char** argv)
         if (current_test_result != 0)
         {
             LOG_ERROR(MAKE_EXTENDED_ERROR_STRUCT(TEST_FAILED_ERROR, tests[i].test_name));
+        } 
+        else
+        {
+            LOG_MESSAGE("Test PASSED", INFO);
         }
     }
-    LOG_STOP();
     return tests_failed;
 }
 
@@ -97,7 +102,10 @@ int test_puts()
 
 int test_strcmp()
 {
-    return 1;
+    if (mc_strcmp("Hello", "Hello")) return 1;
+    if (!mc_strcmp("Hello!", "Hello-")) return 1;
+    if (!mc_strcmp("Hello!", "Hello")) return 1;
+    return 0;
 }
 
 int test_strchr()

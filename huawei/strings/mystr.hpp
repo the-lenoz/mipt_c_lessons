@@ -35,4 +35,8 @@ const char* mc_strstr( const char* haystack, const char* needle );
 long long createPolyHash(const char* str, size_t len);
 long long updatePolyHash(const char new_c, long long old_hash, long long max_coef);
 
+int lexycographic_alpha_str_comparator(void* s1, void* s2);
+int lexycographic_alpha_my_str_comparator(void* s1, void* s2);
+
+
 #endif // MYSTR_DECLARED

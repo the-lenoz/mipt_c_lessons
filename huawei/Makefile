@@ -8,8 +8,8 @@ CFLAGS=-D _DEBUG -g -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-lo
 -Wno-narrowing -Wno-old-style-cast -Wno-varargs -Wstack-protector -fcheck-new -fsized-deallocation -fstack-protector \
 -fstrict-overflow -fno-omit-frame-pointer -Wlarger-than=8192 -Wstack-usage=8192 -pie -fPIE -Wno-format-nonliteral
 
-LIB_SUBDIRS=terminal_decorator error_handling strings logger
-EXECUTABLE_SUBDIRS=lecture_001
+LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort
+EXECUTABLE_SUBDIRS=onegin_main
 TEST_SUBDIRS=tests
 
 LIB_SUBDIRS_CLEAN=$(addprefix clean/, $(LIB_SUBDIRS))

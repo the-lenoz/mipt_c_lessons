@@ -1,6 +1,8 @@
 #include "mystr.hpp"
+#include "array_operations.hpp"
 #include "stdio.h"
 #include "error_handling/my_assert.hpp"
+#include <ctype.h>
 
 int mc_fgetc(FILE *__restrict stream)
 {
@@ -83,7 +85,7 @@ size_t mc_strlen( const char* str )
 int mc_strcmp ( const char * str1, const char * str2 )
 {
     int status = 0;
-    while(*str1 == *str2 && *str1)
+    while(*str1)
     {
         status = *str1++ - *str2++;
         if (status != 0) return status;
@@ -262,4 +264,51 @@ long long updatePolyHash(const char new_c, long long old_hash, long long max_coe
 {
     long long hash = ((old_hash + (unsigned char) new_c - max_coef) * HASH_POLY_BASE - HASH_POLY_BASE) % HASH_MODULE;
     return hash >= 0 ? hash : hash + HASH_MODULE;
+}
+
+
+int lexycographic_alpha_str_comparator(void* s1, void* s2)
+{
+    char* str1 = *((char**) s1);
+    char* str2 = *((char**) s2);
+
+    while (*str1 && !isalpha(*str1)) str1++;
+    while (*str2 && !isalpha(*str2)) str2++;
+
+    while (*str1 && (*str1 == *str2))
+    {
+        str1++;
+        str2++;
+    }
+
+    return tolower(*str1) - tolower(*str2);
+}
+
+int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
+{
+    my_string str1 = *((my_string*) s1);
+    my_string str2 = *((my_string*) s2);
+
+    while (str1.len && !isalpha(*str1.str)) 
+    {
+        str1.str++;
+        str1.len--;
+    }
+    while (str2.len && !isalpha(*str2.str)) 
+    {
+        str2.str++;
+        str2.len--;
+    }
+
+    while (str1.len && str2.len && (*(str1.str) == *(str2.str)))
+    {
+        str1.str++;
+        str1.len--;
+        str2.str++;
+        str2.len--;
+    }
+    if (str1.len == 0) return -1;
+    else if (str2.len == 0) return 1;
+
+    return tolower(*(str1.str)) - tolower(*(str2.str));
 }
