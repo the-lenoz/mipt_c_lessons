@@ -38,8 +38,8 @@ long long updatePolyHash(const char new_c, long long old_hash, long long max_coe
 
 int lexycographic_alpha_str_comparator(void* s1, void* s2);
 
-int lexycographic_alpha_my_str_comparator(void* s1, void* s2);
-int lexycographic_alpha_my_str_reverse_comparator(void* s1, void* s2);
+int lexycographic_alpha_my_str_comparator(const void* s1, const void* s2);
+int lexycographic_alpha_my_str_reverse_comparator(const void* s1, const void* s2);
 
 int is_empty_mystr(my_string s);
 

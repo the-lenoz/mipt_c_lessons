@@ -3,10 +3,16 @@
 
 #include <stdlib.h>
 
-typedef int (*comparator_t)(void*, void*);
+typedef int (*comparator_t)(const void*, const void*);
 
 int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t comparator, int direction);
 
-int basic_int_comparator(void* a, void* b);
+void quick_sort(void* array, size_t array_len, size_t elem_size, comparator_t comparator, int direction);
+
+size_t quick_sort_partition(void* array, size_t array_len, size_t elem_size, comparator_t comparator);
+
+void swap(void* tmp, void* a, void* b, size_t elem_size);
+
+int basic_int_comparator(const void* a, const void* b);
 
 #endif // SORT_DECLARED

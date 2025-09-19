@@ -284,15 +284,15 @@ int lexycographic_alpha_str_comparator(void* s1, void* s2)
     return tolower(*str1) - tolower(*str2);
 }
 
-int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
+int lexycographic_alpha_my_str_comparator(const void* s1, const void* s2)
 {
     assert(s1 != NULL);
     assert(s2 != NULL);
 
     //printf("Comparator init. s1=%p, s2=%p\n", s1, s2);
 
-    my_string str1 = *((my_string*) s1);
-    my_string str2 = *((my_string*) s2);
+    my_string str1 = *((const my_string*) s1);
+    my_string str2 = *((const my_string*) s2);
 
     if (str1.len == 0) return -1;
     else if (str2.len == 0) return 1;
@@ -327,13 +327,13 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
     return tolower(*(str1.str)) - tolower(*(str2.str));
 }
 
-int lexycographic_alpha_my_str_reverse_comparator(void* s1, void* s2)
+int lexycographic_alpha_my_str_reverse_comparator(const void* s1, const void* s2)
 {
     assert(s1 != NULL);
     assert(s2 != NULL);
 
-    my_string str1 = *((my_string*) s1);
-    my_string str2 = *((my_string*) s2);
+    my_string str1 = *((const my_string*) s1);
+    my_string str2 = *((const my_string*) s2);
 
     if (str1.len == 0) return -1;
     else if (str2.len == 0) return 1;

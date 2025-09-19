@@ -9,43 +9,37 @@ size_t split_buffer(char* buffer, char delim, my_string** out_ptr)
 {
     assert(buffer != NULL);
     assert(out_ptr != NULL);
-    
-    size_t buffer_len = 0;
-    size_t buffer_memory_size = 10;
 
-    *out_ptr = (my_string*) calloc(buffer_memory_size, sizeof(my_string));
-
-    my_string* tmp_ptr = NULL;
     char* old_buffer = buffer;
+    
+    size_t number_on_lines = count_char(buffer, '\n');
+    *out_ptr = (my_string*) calloc(number_on_lines, sizeof(my_string));
 
-    while(1)
+
+    for (size_t i = 0; i < number_on_lines; ++i)
     {
-        if (buffer_len >= buffer_memory_size)
-        {
-            buffer_memory_size *= 2;
-            //printf("Buffer memory size: %zu\n", buffer_memory_size);
-            tmp_ptr = (my_string*) calloc(buffer_memory_size, sizeof(my_string));
-
-            memcpy(tmp_ptr, *out_ptr, (buffer_len) * sizeof(my_string));
-            free(*out_ptr);
-            *out_ptr = tmp_ptr;
-        }
-        
-        (*out_ptr)[buffer_len].str = buffer;
+        (*out_ptr)[i].str = buffer;
         
         buffer = strchr(buffer, delim);
         if (buffer == NULL) break;
         
-        (*out_ptr)[buffer_len].len = (size_t) (buffer - old_buffer - 1);
-        
-        //printf("Line number: %zu, line len: %zu, line_ptr: %p, line: %-.*s\n", buffer_len, (*out_ptr)[buffer_len].len, 
-        //    (*out_ptr)[buffer_len].str, (int)(*out_ptr)[buffer_len].len, (*out_ptr)[buffer_len].str);
+        (*out_ptr)[i].len = (size_t) (buffer - old_buffer - 1);
 
         old_buffer = buffer;
-
         buffer++;
-        buffer_len++;   
     }
 
-    return buffer_len;
+    return number_on_lines;
+}
+
+size_t count_char(const char* buffer, char c)
+{
+    size_t n = 0;
+    while (1) {
+        buffer = strchr(buffer, c);
+        if (buffer == NULL) break;
+        ++buffer;
+        ++n;
+    }
+    return n;
 }

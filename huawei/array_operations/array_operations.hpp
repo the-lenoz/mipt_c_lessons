@@ -11,5 +11,6 @@ struct my_string
 
 size_t split_buffer(char* buffer, char delim, my_string** out_ptr);
 
+size_t count_char(const char* buffer, char c);
 
 #endif // ARRAY_OPERATIONS_DECLARED
