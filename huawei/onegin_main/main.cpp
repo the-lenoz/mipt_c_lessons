@@ -63,16 +63,6 @@ int create_and_write_output(my_string* onegin_buffer, size_t lines_num, my_strin
 
     size_t onegin_len = mc_strlen(whole_onegin_buffer.str);
 
-    int arr[] = {2, 1, 3, 5, 8, 9, 7};
-
-    printf("[");
-    for (int i = 0; i < sizeof(arr)/sizeof(arr[0]); ++i) printf("%d, ", arr[i]);
-    printf("\b\b]\n");
-    quick_sort(arr, sizeof(arr)/sizeof(arr[0]), sizeof(arr[0]), basic_int_comparator, -1);
-    printf("[");
-    for (int i = 0; i < sizeof(arr)/sizeof(arr[0]); ++i) printf("%d, ", arr[i]);
-    printf("\b\b]\n");
-
     snprintf(message_buf, 256, "Количество строк: %zu", lines_num);
     LOG_MESSAGE(message_buf, INFO);
     
@@ -92,9 +82,7 @@ int create_and_write_output(my_string* onegin_buffer, size_t lines_num, my_strin
          "\n=================================================================\nSorted (from end to start):\n", 0);
 
     LOG_MESSAGE("Сортировка по суффиксу...", INFO);
-    bubble_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]), lexycographic_alpha_my_str_reverse_comparator, -1);
-    //bubble_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
-    //    lexycographic_alpha_my_str_reverse_comparator, -1);
+    quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]), lexycographic_alpha_my_str_reverse_comparator, -1);
 
     LOG_MESSAGE("запись в файл...", INFO);
     allocate_and_write_lines(onegin_output_file_path,
