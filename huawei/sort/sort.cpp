@@ -18,16 +18,28 @@ int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t co
     {
         for (size_t j = 0; j < array_len - 1 - i; ++j)
         {
-            printf("Sort: compairing array[%zu] <> array[%zu]. \n", j, j+1);
+            //printf("Sort: compairing array[%zu] <> array[%zu]. \n", j, j+1);
             if (comparator((char*)array + (j * elem_size), (char*)array + ((j+1) * elem_size)) * direction < 0)
             {
-                printf("Exchanging: array[%d] <-> array[%d]\n", (int)j, (int)j+1);
-                memccpy(tmp, ((char*)array) + (j * elem_size), 1, elem_size);
-                printf("Writing to array[%zu]\n", j);
-                memccpy(((char*)array) + (j * elem_size), (char*)array + (j * elem_size + elem_size), 1, elem_size);
-                printf("Writing to array[%zu]\n", j+1);
-                memccpy(((char*)array) + ((j + 1) * elem_size), tmp, 1, elem_size);
-                printf("Replaced\n");
+                /*
+                ((my_string*)tmp)->len = ((my_string*)array + j)->len;
+                ((my_string*)tmp)->str = ((my_string*)array + j)->str;
+
+                ((my_string*)array + j)->len = ((my_string*)array + j + 1)->len;
+                ((my_string*)array + j)->str = ((my_string*)array + j + 1)->str;
+
+                ((my_string*)array + j + 1)->len = ((my_string*)tmp)->len;
+                ((my_string*)array + j + 1)->str = ((my_string*)tmp)->str;
+                */
+                
+                //printf("Exchanging: array[%d] <-> array[%d]\n", (int)j, (int)j+1);
+                memcpy(tmp, ((char*)array) + (j * elem_size),  elem_size);
+                //printf("Writing to array[%zu]\n", j);
+                memcpy(((char*)array) + (j * elem_size), (char*)array + (j * elem_size + elem_size), elem_size);
+                //printf("Writing to array[%zu]\n", j+1);
+                memcpy(((char*)array) + ((j + 1) * elem_size), tmp, elem_size);
+                //printf("Replaced\n");
+                
                 replacements++;
             }
         }

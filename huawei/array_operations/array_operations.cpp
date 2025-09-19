@@ -23,6 +23,7 @@ size_t split_buffer(char* buffer, char delim, my_string** out_ptr)
         if (buffer_len >= buffer_memory_size)
         {
             buffer_memory_size *= 2;
+            //printf("Buffer memory size: %zu\n", buffer_memory_size);
             tmp_ptr = (my_string*) calloc(buffer_memory_size, sizeof(my_string));
 
             memcpy(tmp_ptr, *out_ptr, (buffer_len) * sizeof(my_string));
@@ -36,6 +37,9 @@ size_t split_buffer(char* buffer, char delim, my_string** out_ptr)
         if (buffer == NULL) break;
         
         (*out_ptr)[buffer_len].len = (size_t) (buffer - old_buffer - 1);
+        
+        //printf("Line number: %zu, line len: %zu, line_ptr: %p, line: %-.*s\n", buffer_len, (*out_ptr)[buffer_len].len, 
+        //    (*out_ptr)[buffer_len].str, (int)(*out_ptr)[buffer_len].len, (*out_ptr)[buffer_len].str);
 
         old_buffer = buffer;
 

@@ -64,6 +64,7 @@ size_t allocate_and_write_lines(const char* file_path, my_string* lines_buffer, 
     {
         if (lines_buffer[i].len != 0 && !is_empty_mystr(lines_buffer[i]))
         {
+            printf("Writing: array[%zu] = %-.*s (len=%zu)\n", i, (int) lines_buffer[i].len, lines_buffer[i].str, lines_buffer[i].len);
             strncat(file_buffer, lines_buffer[i].str, lines_buffer[i].len);
             strncat(file_buffer, "\n", 1);
         }

@@ -289,12 +289,17 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
     assert(s1 != NULL);
     assert(s2 != NULL);
 
-    printf("Comparator init. s1=%p, s2=%p\n", s1, s2);
+    //printf("Comparator init. s1=%p, s2=%p\n", s1, s2);
 
     my_string str1 = *((my_string*) s1);
     my_string str2 = *((my_string*) s2);
 
-    printf("Comparator started. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
+    if (str1.len == 0) return -1;
+    else if (str2.len == 0) return 1;
+
+    //printf("Comparator starting. str1=%p, str2=%p\n", str1.str, str2.str);
+
+    //printf("Comparator started. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
 
     while (str1.len && !isalpha(*str1.str))
     {
@@ -309,7 +314,7 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
 
     while (str1.len && str2.len && (*(str1.str) == *(str2.str)))
     {
-        printf("Comparator skip eq. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
+        //printf("Comparator skip eq. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
         str1.str++;
         str1.len--;
         str2.str++;
@@ -318,7 +323,7 @@ int lexycographic_alpha_my_str_comparator(void* s1, void* s2)
     if (str1.len == 0) return -1;
     else if (str2.len == 0) return 1;
 
-    printf("Comparator result. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
+    //printf("Comparator result. Len1=%zu, Len2=%zu, chr1=%c, chr2=%c\n", str1.len, str2.len, *(str1.str), *(str2.str));
     return tolower(*(str1.str)) - tolower(*(str2.str));
 }
 
@@ -329,6 +334,9 @@ int lexycographic_alpha_my_str_reverse_comparator(void* s1, void* s2)
 
     my_string str1 = *((my_string*) s1);
     my_string str2 = *((my_string*) s2);
+
+    if (str1.len == 0) return -1;
+    else if (str2.len == 0) return 1;
 
     str1.str += str1.len - 1;
     str2.str += str2.len - 1;

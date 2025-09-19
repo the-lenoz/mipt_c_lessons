@@ -21,6 +21,9 @@ static LoggerProperties logger_properties =
     .filename = NULL
 };
 
+char timestamp_buffer[MAX_LOGGER_TIMESTAMP_LEN + 1] = {0};
+char logger_annotation_buffer[MAX_LOGGER_ANNOTATION_LEN + 1] = {0};
+
 
 int LOG_START(const char* filename, int log_targets_count, LogTarget* log_targets)
 {
@@ -216,33 +219,35 @@ int write_log_annotation(LogMessageType message_type, int file_descriptor)
     assert(logger_properties.filename != NULL);
 
     time_t timer;
-    char time_buffer[MAX_LOGGER_TIMESTAMP_LEN] = {0};
-    char buffer[MAX_LOGGER_ANNOTATION_LEN] = {0};
+    
+    memset(timestamp_buffer, '\0', MAX_LOGGER_TIMESTAMP_LEN);
+    memset(logger_annotation_buffer, '\0', MAX_LOGGER_ANNOTATION_LEN);
+
     struct tm* tm_info;
 
     timer = time(NULL);
     tm_info = localtime(&timer);
 
-    strftime(time_buffer, MAX_LOGGER_TIMESTAMP_LEN, " [%Y-%m-%d %H:%M:%S] - [", tm_info);
+    strftime(timestamp_buffer, MAX_LOGGER_TIMESTAMP_LEN, " [%Y-%m-%d %H:%M:%S] - [", tm_info);
 
     if (file_descriptor == STDOUT_FILENO && message_type != INFO)
     {
         if (message_type == WARNING)
         {
-            strcat(buffer, ANSI_COLOR_YELLOW);
+            strcat(logger_annotation_buffer, ANSI_COLOR_YELLOW);
         }
         else if (message_type == ERROR)
         {
-            strcat(buffer, ANSI_COLOR_RED);
+            strcat(logger_annotation_buffer, ANSI_COLOR_RED);
         }
     }
 
-    strcat(buffer, logger_properties.filename);
-    strncat(buffer, time_buffer, MAX_LOGGER_TIMESTAMP_LEN);
-    strcat(buffer, get_log_message_type_str(message_type));
-    strcat(buffer, "]: ");
+    strcat(logger_annotation_buffer, logger_properties.filename);
+    strncat(logger_annotation_buffer, timestamp_buffer, MAX_LOGGER_TIMESTAMP_LEN);
+    strcat(logger_annotation_buffer, get_log_message_type_str(message_type));
+    strcat(logger_annotation_buffer, "]: ");
 
-    return write(file_descriptor, buffer, strlen(buffer)) == -1 ? -1 : 0;
+    return write(file_descriptor, logger_annotation_buffer, strlen(logger_annotation_buffer)) == -1 ? -1 : 0;
 }
 
 
