@@ -84,7 +84,7 @@ int LOG_START(const char* filename, int log_targets_count, LogTarget* log_target
 
     logger_properties.logging_on = 1;
 
-    LOG_MESSAGE("Логгер запущен\n", INFO);
+    LOG_MESSAGE("Логгер запущен", INFO);
     return 0;
 }
 

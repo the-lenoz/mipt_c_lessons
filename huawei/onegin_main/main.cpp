@@ -29,10 +29,12 @@ int main(int argc, const char** argv)
     assert(argv[0] != NULL);
     int fd = 0;
 
+    char message_buf[256] = {};
+
     LOG_START(argv[0], log_targets_count, log_targets);
 
 
-    printf("Reading...\n");
+    LOG_MESSAGE("Чтение...", INFO);
     my_string* onegin_buffer = NULL;
     size_t lines_num = allocate_and_read_lines(onegin_input_file_path, &onegin_buffer);
 
@@ -44,9 +46,10 @@ int main(int argc, const char** argv)
     my_string whole_onegin_buffer = onegin_buffer[0];
     size_t onegin_len = mc_strlen(whole_onegin_buffer.str);
 
-    printf("Number of lines: %zu\n", lines_num);
+    snprintf(message_buf, 256, "Количество строк: %zu", lines_num);
+    LOG_MESSAGE(message_buf, INFO);
     
-    printf("=============================================================\n");
+    LOG_MESSAGE("=============================================================", INFO);
 
     fd = open(onegin_output_file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd == -1)
@@ -56,12 +59,12 @@ int main(int argc, const char** argv)
     write(fd, "Sorted (from start to end):\n", 28);
     close(fd);
 
-    printf("Sorting forwards...\n");
+    LOG_MESSAGE("Сортировка по префиксу...", INFO);
 
     bubble_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
         lexycographic_alpha_my_str_comparator, -1);
 
-    printf("Writing...\n");
+    LOG_MESSAGE("Запись в файл...", INFO);
     allocate_and_write_lines(onegin_output_file_path, onegin_buffer, lines_num, onegin_len);
 
     fd = open(onegin_output_file_path, O_WRONLY | O_CREAT | O_APPEND, 0666);
@@ -72,12 +75,12 @@ int main(int argc, const char** argv)
     write(fd, "\n=================================================================\nSorted (from end to start):\n", 95);
     close(fd);
 
-    printf("Sorting backwards...\n");
+    LOG_MESSAGE("Сортировка по суффиксу...", INFO);
 
     bubble_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
         lexycographic_alpha_my_str_reverse_comparator, -1);
 
-    printf("Writing...\n");
+    LOG_MESSAGE("запись в файл...", INFO);
     allocate_and_write_lines(onegin_output_file_path, onegin_buffer, lines_num, onegin_len);
 
     fd = open(onegin_output_file_path, O_WRONLY | O_CREAT | O_APPEND, 0666);
@@ -89,7 +92,7 @@ int main(int argc, const char** argv)
     write(fd, whole_onegin_buffer.str, onegin_len);
 
     close(fd);
-    printf("Exiting!\n");
+    LOG_MESSAGE("Очистка и освобождение ресурсов...", INFO);
 
     free(whole_onegin_buffer.str);
     free(onegin_buffer);
