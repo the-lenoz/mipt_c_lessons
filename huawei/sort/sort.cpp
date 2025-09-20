@@ -78,7 +78,6 @@ void swap(void* a, void* b, size_t elem_size) // With alignment check
     while (elem_size != 0)
     {
         copy_size = (elem_size & (FAST_COPY_BLOCK_SIZE - 1)) ? elem_size & (FAST_COPY_BLOCK_SIZE - 1) : FAST_COPY_BLOCK_SIZE;
-        printf("Exchanging %p <-> %p : elem_size=%zu\n", a, b, elem_size);
         memcpy(block, a, copy_size);
         memcpy(a, b, copy_size);
         memcpy(b, block, copy_size);
