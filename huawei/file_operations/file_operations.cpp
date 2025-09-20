@@ -74,7 +74,7 @@ size_t allocate_and_read_lines(const char* file_path, my_string** lines_buffer)
     return split_buffer(buffer, '\n', lines_buffer); 
 }
 
-size_t allocate_and_write_lines(const char* file_path, my_string* lines_buffer, size_t lines_num, size_t max_file_size)
+size_t write_lines(const char* file_path, my_string* lines_buffer, size_t lines_num, size_t max_file_size)
 {
     assert(file_path != NULL);
     size_t lines_written = 0;
@@ -109,7 +109,7 @@ size_t allocate_and_write_lines(const char* file_path, my_string* lines_buffer, 
     return lines_written; 
 }
 
-ssize_t append_string_to_file(const char* file_path, const char* str, int truncate)
+ssize_t write_string_to_file(const char* file_path, const char* str, int truncate)
 {
     ssize_t result = 0;
     int fd = open(file_path, O_WRONLY | O_CREAT | (truncate ? O_TRUNC : O_APPEND), 0666);

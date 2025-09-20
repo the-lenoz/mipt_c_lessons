@@ -11,10 +11,6 @@
 #include "sort/sort.hpp"
 #include "status.hpp"
 
-
-const char* onegin_input_file_path = "onegin.txt";
-const char* onegin_output_file_path = "new_onegin.txt";
-
 LogTarget log_targets[] = 
 {
     {}, // stdout
@@ -22,6 +18,8 @@ LogTarget log_targets[] =
 };
 const int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 
+
+int with_onegin_files(const char* input_path, const char* output_path);
 
 int create_and_write_output(my_string* onegin_buffer, size_t lines_num, const char* whole_onegin_buffer);
 
@@ -33,12 +31,26 @@ int main(int argc, const char** argv)
     assert(argv[0] != NULL);
 
     LOG_START(argv[0], log_targets_count, log_targets);
+    
+    if (argc < 3)
+    {
+        LOG_MESSAGE("Usage: onegin [input.txt] [output.txt]", ERROR);
+        return -1;
+    }
+    
+    return with_onegin_files(argv[argc - 2], argv[argc - 1]);
+}
 
-    LOG_MESSAGE("Чтение...", INFO);
-
+int with_onegin_files(const char* input_path, const char* output_path)
+{
+    assert(input_path != NULL);
+    assert(output_path != NULL);
+    
     my_string* onegin_buffer = NULL;
-    size_t lines_num = allocate_and_read_lines(onegin_input_file_path, &onegin_buffer);
-
+    
+    LOG_MESSAGE("Чтение...", INFO);
+    
+    size_t lines_num = allocate_and_read_lines(input_path, &onegin_buffer);
     if (onegin_buffer == NULL)
     {
         LOG_ERROR(MAKE_ERROR_STRUCT(CANNOT_OPEN_FILE_ERROR));
@@ -46,51 +58,37 @@ int main(int argc, const char** argv)
     }
 
     char* whole_onegin_buffer = onegin_buffer[0].str;
+    
+    size_t onegin_len = mc_strlen(whole_onegin_buffer);
+    
+    write_string_to_file(output_path, "Sorted (from start to end):\n", 1);
+    
+    LOG_MESSAGE("Сортировка по префиксу...", INFO);
+    quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
+        lexycographic_alpha_my_str_comparator, -1);
 
-    create_and_write_output(onegin_buffer, lines_num, whole_onegin_buffer);
+    LOG_MESSAGE("Запись в файл...", INFO);
+    write_lines(output_path, onegin_buffer, lines_num, onegin_len);
+    
+    write_string_to_file(output_path,
+         "\n=================================================================\nSorted (from end to start):\n", 0);
+
+    LOG_MESSAGE("Сортировка по суффиксу...", INFO);
+    quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
+        lexycographic_alpha_my_str_reverse_comparator, -1);
+
+    LOG_MESSAGE("запись в файл...", INFO);
+    write_lines(output_path,
+         onegin_buffer, lines_num, onegin_len);
+
+    write_string_to_file(output_path,
+         "\n====================================================================\nOriginal:\n", 0);
+    write_string_to_file(output_path, whole_onegin_buffer, 0);
 
     LOG_MESSAGE("Очистка и освобождение ресурсов...", INFO);
 
     free(whole_onegin_buffer);
     free(onegin_buffer);
-
-    return 0;
-}
-
-int create_and_write_output(my_string* onegin_buffer, size_t lines_num, const char* whole_onegin_buffer)
-{
-    char message_buf[256] = {};
-
-    size_t onegin_len = mc_strlen(whole_onegin_buffer);
-
-    snprintf(message_buf, 256, "Количество строк: %zu", lines_num);
-    LOG_MESSAGE(message_buf, INFO);
-    
-    LOG_MESSAGE("=============================================================", INFO);
-
-    append_string_to_file(onegin_output_file_path, "Sorted (from start to end):\n", 1);
-
-    LOG_MESSAGE("Сортировка по префиксу...", INFO);
-
-    quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
-        lexycographic_alpha_my_str_comparator, -1);
-
-    LOG_MESSAGE("Запись в файл...", INFO);
-    allocate_and_write_lines(onegin_output_file_path, onegin_buffer, lines_num, onegin_len);
-
-    append_string_to_file(onegin_output_file_path,
-         "\n=================================================================\nSorted (from end to start):\n", 0);
-
-    LOG_MESSAGE("Сортировка по суффиксу...", INFO);
-    quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]), lexycographic_alpha_my_str_reverse_comparator, -1);
-
-    LOG_MESSAGE("запись в файл...", INFO);
-    allocate_and_write_lines(onegin_output_file_path,
-         onegin_buffer, lines_num, onegin_len);
-
-    append_string_to_file(onegin_output_file_path,
-         "====================================================================\n\nOriginal:\n", 0);
-    append_string_to_file(onegin_output_file_path, whole_onegin_buffer, 0);
 
     return 0;
 }
