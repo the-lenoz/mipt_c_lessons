@@ -19,7 +19,7 @@ LogTarget log_targets[] =
 const int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 
 
-int with_onegin_files(const char* input_path, const char* output_path);
+int process_onegin_files(const char* input_path, const char* output_path);
 
 
 int main(int argc, const char** argv)
@@ -36,10 +36,10 @@ int main(int argc, const char** argv)
         return -1;
     }
     
-    return with_onegin_files(argv[argc - 2], argv[argc - 1]);
+    return process_onegin_files(argv[argc - 2], argv[argc - 1]);
 }
 
-int with_onegin_files(const char* input_path, const char* output_path)
+int process_onegin_files(const char* input_path, const char* output_path)
 {
     assert(input_path != NULL);
     assert(output_path != NULL);
