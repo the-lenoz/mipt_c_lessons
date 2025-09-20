@@ -68,7 +68,7 @@ size_t quick_sort_partition(void* array, size_t array_len, size_t elem_size, com
     return (size_t)((char*)i - (char*)array) / elem_size;
 }  
 
-void swap(void* a, void* b, size_t elem_size) // Alignment check
+void swap(void* a, void* b, size_t elem_size) // With alignment check
 {
     if (a == b) return;
 
@@ -79,7 +79,7 @@ void swap(void* a, void* b, size_t elem_size) // Alignment check
 
     while (elem_size != 0)
     {
-        if (elem_size >> 3 && (size_t)a >> 3 && (size_t)b >> 3) 
+        if (elem_size >> 3 && ((size_t)a & 7) == 0 && ((size_t)b & 7) == 0) 
         {
             block64 = *(int64_t*)a;
             *(int64_t*)a = *(int64_t*)b;
@@ -88,7 +88,7 @@ void swap(void* a, void* b, size_t elem_size) // Alignment check
             b = (char*)b + 8;
             elem_size -= 8;
         }
-        else if (elem_size >> 2 && (size_t)a >> 2 && (size_t)b >> 2)
+        else if (elem_size >> 2 && ((size_t)a & 3) == 0 && ((size_t)b & 3) == 0)
         {
             block32 = *(int32_t*)a;
             *(int32_t*)a = *(int32_t*)b;
@@ -97,7 +97,7 @@ void swap(void* a, void* b, size_t elem_size) // Alignment check
             b = (char*)b + 4;
             elem_size -= 4;
         }
-        else if (elem_size >> 1 && (size_t)a >> 1 && (size_t)b >> 1)
+        else if (elem_size >> 1 && ((size_t)a & 1) == 0 && ((size_t)b & 1) == 0)
         {
             block16 = *(int16_t*)a;
             *(int16_t*)a = *(int16_t*)b;
