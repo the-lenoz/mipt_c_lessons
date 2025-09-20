@@ -21,8 +21,6 @@ const int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 
 int with_onegin_files(const char* input_path, const char* output_path);
 
-int create_and_write_output(my_string* onegin_buffer, size_t lines_num, const char* whole_onegin_buffer);
-
 
 int main(int argc, const char** argv)
 {
