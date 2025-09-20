@@ -1,6 +1,6 @@
 #include "sort.hpp"
 #include "error_handling/my_assert.hpp"
-#include "status.hpp"
+#include <cstdint>
 #include <cstdlib>
 #include <string.h>
 #include <stdio.h>
@@ -12,8 +12,6 @@ int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t co
 
     if (array_len <= 1) return 0;
 
-    void* tmp = calloc(1, elem_size);
-
     int replacements = 0;
 
     for (size_t i = 0; i < array_len - 1; ++i)
@@ -23,13 +21,12 @@ int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t co
             //printf("Sort: compairing array[%zu] <> array[%zu]. \n", j, j+1);
             if (comparator((char*)array + (j * elem_size), (char*)array + ((j+1) * elem_size)) * direction < 0)
             {                
-                swap(tmp, ((char*)array) + (j * elem_size),
+                swap(((char*)array) + (j * elem_size),
                      ((char*)array) + j * elem_size + elem_size, elem_size);                
                 replacements++;
             }
         }
     }
-    free(tmp);
     return replacements;
 }
 
@@ -38,18 +35,12 @@ void quick_sort(void* array, size_t array_len, size_t elem_size, comparator_t co
     assert(array != NULL);
     assert(elem_size != 0);
 
-    if (array_len > 2)
+    if (array_len > 1)
     {
         size_t partition = quick_sort_partition(array, array_len, elem_size, comparator);
         quick_sort(array, partition, elem_size, comparator, direction);
         quick_sort((char*)array + (partition * elem_size), 
             array_len - partition, elem_size, comparator, direction);
-    }
-    else if (array_len == 2)
-    {
-        char* tmp = (char*)calloc(1, elem_size);
-        if (comparator(array, (char*)array + elem_size) * direction < 0) swap(tmp, array, (char*)array + elem_size, elem_size);
-        free(tmp);
     }
 }
 
@@ -58,39 +49,76 @@ size_t quick_sort_partition(void* array, size_t array_len, size_t elem_size, com
     assert(array != NULL);
     assert(elem_size != 0);
 
-    char* v = (char*)calloc(1, elem_size);
-    char* tmp = (char*)calloc(1, elem_size);
-
-    memcpy(v, (char*) array + (array_len - 1) * elem_size, elem_size);
-
+    char* v = (char*) array + (array_len - 1) * elem_size;
     char* i = (char*)array;
 
-    
     for (char* j = (char*)array; (size_t)(j - (char*)array) < ((array_len - 1) * elem_size); j += elem_size)
     {
         if (comparator(j, v) <= 0)
         {
-            swap(tmp, i, j, elem_size);
+            swap(i, j, elem_size);
+
+            if (v == i) v = j; // Preserve v value
+            if (v == j) v = i;
+
             i += elem_size;
         }
     }
-    swap(tmp, i, (char*) array + (array_len - 1) * elem_size, elem_size);
-    free(tmp);
-    free(v);
+    swap(i, (char*) array + (array_len - 1) * elem_size, elem_size);
     return (size_t)((char*)i - (char*)array) / elem_size;
 }  
 
-void swap(void* tmp, void* a, void* b, size_t elem_size)
+void swap(void* a, void* b, size_t elem_size) // Alignment check
 {
     if (a == b) return;
-    //printf("Exchanging: %p <-> %p\n", a, b);
-    memcpy(tmp, a,  elem_size);
-    memcpy(a, b, elem_size);
-    memcpy(b, tmp, elem_size);
-    //printf("Replaced\n");
+
+    int64_t block64 = 0;
+    int32_t block32 = 0;
+    int16_t block16 = 0;
+    int8_t block8 = 0;
+
+    while (elem_size != 0)
+    {
+        if (elem_size >> 3 && (size_t)a >> 3 && (size_t)b >> 3) 
+        {
+            block64 = *(int64_t*)a;
+            *(int64_t*)a = *(int64_t*)b;
+            *(int64_t*)b = block64;
+            a = (char*)a + 8;
+            b = (char*)b + 8;
+            elem_size -= 8;
+        }
+        else if (elem_size >> 2 && (size_t)a >> 2 && (size_t)b >> 2)
+        {
+            block32 = *(int32_t*)a;
+            *(int32_t*)a = *(int32_t*)b;
+            *(int32_t*)b = block32;
+            a = (char*)a + 4;
+            b = (char*)b + 4;
+            elem_size -= 4;
+        }
+        else if (elem_size >> 1 && (size_t)a >> 1 && (size_t)b >> 1)
+        {
+            block16 = *(int16_t*)a;
+            *(int16_t*)a = *(int16_t*)b;
+            *(int16_t*)b = block16;
+            a = (char*)a + 2;
+            b = (char*)b + 2;
+            elem_size -= 2;
+        }
+        else 
+        {
+            block8 = *(int8_t*)a;
+            *(int8_t*)a = *(int8_t*)b;
+            *(int8_t*)b = block8;
+            a = (char*)a + 1;
+            b = (char*)b + 1;
+            --elem_size;
+        }
+    }
 }
 
 int basic_int_comparator(const void* a, const void* b)
 {
-    return *((int*)a) - *((int*)b);
+    return *((const int*)a) - *((const int*)b);
 }

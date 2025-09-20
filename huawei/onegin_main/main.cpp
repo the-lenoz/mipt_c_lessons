@@ -23,7 +23,7 @@ LogTarget log_targets[] =
 const int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 
 
-int create_and_write_output(my_string* onegin_buffer, size_t lines_num, my_string whole_onegin_buffer);
+int create_and_write_output(my_string* onegin_buffer, size_t lines_num, const char* whole_onegin_buffer);
 
 
 int main(int argc, const char** argv)
@@ -45,23 +45,23 @@ int main(int argc, const char** argv)
         return -1;
     }
 
-    my_string whole_onegin_buffer = onegin_buffer[0];
+    char* whole_onegin_buffer = onegin_buffer[0].str;
 
     create_and_write_output(onegin_buffer, lines_num, whole_onegin_buffer);
 
     LOG_MESSAGE("Очистка и освобождение ресурсов...", INFO);
 
-    free(whole_onegin_buffer.str);
+    free(whole_onegin_buffer);
     free(onegin_buffer);
 
     return 0;
 }
 
-int create_and_write_output(my_string* onegin_buffer, size_t lines_num, my_string whole_onegin_buffer)
+int create_and_write_output(my_string* onegin_buffer, size_t lines_num, const char* whole_onegin_buffer)
 {
     char message_buf[256] = {};
 
-    size_t onegin_len = mc_strlen(whole_onegin_buffer.str);
+    size_t onegin_len = mc_strlen(whole_onegin_buffer);
 
     snprintf(message_buf, 256, "Количество строк: %zu", lines_num);
     LOG_MESSAGE(message_buf, INFO);
@@ -90,7 +90,7 @@ int create_and_write_output(my_string* onegin_buffer, size_t lines_num, my_strin
 
     append_string_to_file(onegin_output_file_path,
          "====================================================================\n\nOriginal:\n", 0);
-    append_string_to_file(onegin_output_file_path, whole_onegin_buffer.str, 0);
+    append_string_to_file(onegin_output_file_path, whole_onegin_buffer, 0);
 
     return 0;
 }

@@ -43,6 +43,7 @@ char* allocate_and_read(const char* file_path)
     int fd = open(file_path, O_RDONLY);
     if (fd == -1)
     {
+        free(buffer);
         LOG_ERROR(MAKE_ERROR_STRUCT(CANNOT_OPEN_FILE_ERROR));
         return NULL;
     }
@@ -53,6 +54,7 @@ char* allocate_and_read(const char* file_path)
 
     if (readed_bytes == -1)
     {
+        free(buffer);
         return NULL;
     }
     if (readed_bytes < file_size)
