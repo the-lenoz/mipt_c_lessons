@@ -72,49 +72,18 @@ void swap(void* a, void* b, size_t elem_size) // With alignment check
 {
     if (a == b) return;
 
-    int64_t block64 = 0;
-    int32_t block32 = 0;
-    int16_t block16 = 0;
-    int8_t block8 = 0;
+    int8_t block[FAST_COPY_BLOCK_SIZE] = {};
+    size_t copy_size = 0;
 
     while (elem_size != 0)
     {
-        if (elem_size >> 3 && ((size_t)a & 7) == 0 && ((size_t)b & 7) == 0) 
-        {
-            block64 = *(int64_t*)a;
-            *(int64_t*)a = *(int64_t*)b;
-            *(int64_t*)b = block64;
-            a = (char*)a + 8;
-            b = (char*)b + 8;
-            elem_size -= 8;
-        }
-        else if (elem_size >> 2 && ((size_t)a & 3) == 0 && ((size_t)b & 3) == 0)
-        {
-            block32 = *(int32_t*)a;
-            *(int32_t*)a = *(int32_t*)b;
-            *(int32_t*)b = block32;
-            a = (char*)a + 4;
-            b = (char*)b + 4;
-            elem_size -= 4;
-        }
-        else if (elem_size >> 1 && ((size_t)a & 1) == 0 && ((size_t)b & 1) == 0)
-        {
-            block16 = *(int16_t*)a;
-            *(int16_t*)a = *(int16_t*)b;
-            *(int16_t*)b = block16;
-            a = (char*)a + 2;
-            b = (char*)b + 2;
-            elem_size -= 2;
-        }
-        else 
-        {
-            block8 = *(int8_t*)a;
-            *(int8_t*)a = *(int8_t*)b;
-            *(int8_t*)b = block8;
-            a = (char*)a + 1;
-            b = (char*)b + 1;
-            --elem_size;
-        }
+        copy_size = elem_size >= FAST_COPY_BLOCK_SIZE ? FAST_COPY_BLOCK_SIZE : elem_size;
+        memcpy(block, a, copy_size);
+        memcpy(a, b, copy_size);
+        memcpy(b, block, copy_size);
+        a = (char*)a + copy_size;
+        b = (char*)b + copy_size;
+        elem_size -= copy_size;
     }
 }
 

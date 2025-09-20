@@ -9,8 +9,8 @@
 
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
-#define TERMINAL_BLINK_START  "\e[5m"
-#define TERMINAL_BLINK_RESET  "\e[m"
+#define TERMINAL_BLINK_START  "\033[5m"
+#define TERMINAL_BLINK_RESET  "\033[m"
 
 
 const int ANSI_COLOR_LEN = sizeof(ANSI_COLOR_RED);

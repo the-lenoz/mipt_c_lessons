@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#define FAST_COPY_BLOCK_SIZE 64
+
 typedef int (*comparator_t)(const void*, const void*);
 
 int bubble_sort(void* array, size_t array_len, size_t elem_size, comparator_t comparator, int direction);
