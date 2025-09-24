@@ -10,8 +10,8 @@
 void print_error(StatusData error_data)
 {
     const char* error_code_string = get_error_description(error_data.status_code);
-    printf_red("Произошла ошибка: %s - \"%s\". Файл - %s, функция - %s, строка - %d\n",
-                error_code_string, error_data.error_description, error_data.filename, error_data.func_name, error_data.line_number);
+    fprintf_red(stderr, "Произошла ошибка: %s. Файл - %s, функция - %s, строка - %d\n%s\n",
+                error_code_string, error_data.filename, error_data.func_name, error_data.line_number, error_data.error_description);
 }
 
 void print_back_trace(void)
@@ -53,6 +53,8 @@ const char* get_error_description(StatusCode status_code)
             return "ASSERTION FAILED";
         case SUCCESS:
             return "ошибки нет";
+        case INVALID_FUNCTION_PARAM:
+            return "функции передан недопусимый параметр";
         default:
             return "тип неизвестен";
     }

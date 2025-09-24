@@ -63,7 +63,7 @@ int process_onegin_files(const char* input_path, const char* output_path)
     
     LOG_MESSAGE("Сортировка по префиксу...", INFO);
     quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
-        lexycographic_alpha_my_str_comparator, -1);
+        lexycographic_alpha_my_str_prefix_comparator, -1);
 
     LOG_MESSAGE("Запись в файл...", INFO);
     write_lines(output_path, onegin_buffer, lines_num, onegin_len);
@@ -73,7 +73,7 @@ int process_onegin_files(const char* input_path, const char* output_path)
 
     LOG_MESSAGE("Сортировка по суффиксу...", INFO);
     quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
-        lexycographic_alpha_my_str_reverse_comparator, -1);
+        lexycographic_alpha_my_str_suffix_comparator, -1);
 
     LOG_MESSAGE("запись в файл...", INFO);
     write_lines(output_path,
