@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -54,7 +55,9 @@ int LOG_START(const char* filename, int log_targets_count, LogTarget* log_target
         if (logger_properties.log_targets[i].file_path == NULL) // STDOUT
         {
             logger_properties.log_targets[i].type = STDOUT;
-            logger_properties.log_targets[i].file_descriptor = STDOUT_FILENO;
+            logger_properties.log_targets[i].fp = NULL;
+            setbuf(stdout, NULL);
+            setbuf(stderr, NULL);
             continue;
         }   
 
@@ -69,89 +72,48 @@ int LOG_START(const char* filename, int log_targets_count, LogTarget* log_target
             logger_properties.log_targets[i].type = TEXT;
         }
 
-        logger_properties.log_targets[i].file_descriptor = open(logger_properties.log_targets[i].file_path, O_WRONLY | O_CREAT | O_APPEND, 0640);
+        logger_properties.log_targets[i].fp = fopen(logger_properties.log_targets[i].file_path, "a");
 
-        if (logger_properties.log_targets[i].file_descriptor == -1)
+        if (logger_properties.log_targets[i].fp == NULL)
         {
             print_error(MAKE_ERROR_STRUCT(CANNOT_OPEN_FILE_ERROR));
             return -1;
         }
+
+        setbuf(logger_properties.log_targets[i].fp, NULL);
     }
 
-    atexit(&LOG_STOP);
+    atexit(LOG_STOP);
 
     logger_properties.filename = filename;
 
     logger_properties.logging_on = 1;
 
-    LOG_MESSAGE("Логгер запущен", INFO);
+    LOG_MESSAGE_F(INFO, "Логгер запущен");
     return 0;
 }
 
-int LOG_MESSAGE(const char* message, LogMessageType message_type)
+int LOG_MESSAGE_F(LogMessageType message_type, const char* format, ...)
 {
-    assert(message != NULL);
-
-    int log_status_code = 0;
-    
-    if (!logger_properties.logging_on)
-    {
-        print_error(MAKE_ERROR_STRUCT(LOGGER_OFF_WRITE_ERROR));
-        return -1;
-    }
-
-    for (int i = 0; i < logger_properties.log_targets_count; ++i)
-    {
-        switch (logger_properties.log_targets[i].type)
-        {
-            case STDOUT:
-                if (log_to_stdout(logger_properties.log_targets[i].file_descriptor, message, message_type) == -1)
-                {
-                    print_error(MAKE_ERROR_STRUCT(LOG_WRITE_ERROR));
-                    log_status_code = -1;
-                }   
-                break;
-            case TEXT:
-                if (log_to_text_file(logger_properties.log_targets[i].file_descriptor, message, message_type) == -1)
-                {
-                    print_error(MAKE_ERROR_STRUCT(LOG_WRITE_ERROR));
-                    log_status_code = -1;
-                }
-                break;
-            case HTML:
-                if (log_to_html_file(logger_properties.log_targets[i].file_descriptor, message, message_type) == -1)
-                {
-                    print_error(MAKE_ERROR_STRUCT(LOG_WRITE_ERROR));
-                    log_status_code = -1;
-                }
-                break;
-            default:
-                break;
-        }
-    }
-    return log_status_code;    
+    va_list args;
+    va_start(args, format);
+    return vlog_message_f(message_type, format, args);
 }
 
 int LOG_ERROR(StatusData error_data)
 {
     const char* error_description = get_error_description(error_data.status_code);
-    char line_number_string[MAX_LINE_NUMBER_STR_LEN] = {0};
-    void * backtrace_buffer[BACKTRACE_BUFFER_SIZE] = {0};
+    void* backtrace_buffer[BACKTRACE_BUFFER_SIZE] = {};
+    FILE* fp = NULL;
 
     backtrace(backtrace_buffer, BACKTRACE_BUFFER_SIZE);
 
-    sprintf(line_number_string, "%d", error_data.line_number);
-
-    LOG_MESSAGE_AND_EXIT_ON_ERROR("ОШИБКА:");
-    LOG_MESSAGE_AND_EXIT_ON_ERROR(error_description);
-    LOG_MESSAGE_AND_EXIT_ON_ERROR("Произошла в файле:");
-    LOG_MESSAGE_AND_EXIT_ON_ERROR(error_data.filename);
-    LOG_MESSAGE_AND_EXIT_ON_ERROR(error_data.error_description);
-    LOG_MESSAGE_AND_EXIT_ON_ERROR("В функции:");
-    LOG_MESSAGE_AND_EXIT_ON_ERROR(error_data.func_name);
-    LOG_MESSAGE_AND_EXIT_ON_ERROR("На строке номер:");
-    LOG_MESSAGE_AND_EXIT_ON_ERROR(line_number_string);
-    LOG_MESSAGE_AND_EXIT_ON_ERROR("ТРАССИРОВКА (последний вызов указан последним):");
+    if (LOG_MESSAGE_F(ERROR, 
+        "ОШИБКА: '%s'\n'%s'\nПроизошла в файле: '%s', в функции '%s', на строке номер %d\nТрассировка:", 
+        error_description, error_data.error_description, error_data.filename, error_data.func_name, error_data.line_number) == -1)
+    {
+        return -1;
+    }
 
     int backtrace_size = 0;
     for (;backtrace_size <= BACKTRACE_BUFFER_SIZE && backtrace_buffer[backtrace_size] != NULL; ++backtrace_size)
@@ -161,17 +123,25 @@ int LOG_ERROR(StatusData error_data)
 
     for (int i = 0; i < logger_properties.log_targets_count; ++i)
     {
+        fp = logger_properties.log_targets[i].fp;
         if (logger_properties.log_targets[i].type == HTML)
         {
-            if (write(logger_properties.log_targets[i].file_descriptor, "<pre style=\"color:red\">\n", 23) == -1)
+            if (fprintf(logger_properties.log_targets[i].fp, "<pre style=\"color:red\">\n") == -1)
             {
                 return -1;
             }
         }
-        backtrace_symbols_fd(backtrace_buffer, backtrace_size, logger_properties.log_targets[i].file_descriptor);
+        else if (logger_properties.log_targets[i].type == STDOUT)
+        {
+            fp = stderr;
+        }
+
+        backtrace_symbols_fd(backtrace_buffer, backtrace_size, 
+            fileno(fp));
+
         if (logger_properties.log_targets[i].type == HTML)
         {
-            if (write(logger_properties.log_targets[i].file_descriptor, "</pre>", 6) == -1)
+            if (fprintf(logger_properties.log_targets[i].fp, "</pre>") == -1)
             {
                 return -1;
             }
@@ -185,17 +155,15 @@ void LOG_STOP(void)
 {
     if (!logger_properties.logging_on) return;
 
-    LOG_MESSAGE("Завершение", INFO);
+    LOG_MESSAGE_F(INFO, "Завершение");
     
     for (int i = 0; i < logger_properties.log_targets_count; ++i)
     {
         if (logger_properties.log_targets[i].type == HTML || logger_properties.log_targets[i].type == TEXT)
         {
-            fsync(logger_properties.log_targets[i].file_descriptor);
-            close(logger_properties.log_targets[i].file_descriptor);
+            fclose(logger_properties.log_targets[i].fp);
         }
     }
-    //free((void *)logger_properties.log_targets);
     
 }
 
@@ -214,11 +182,12 @@ const char* get_log_message_type_str(LogMessageType message_type)
     }
 }
 
-int write_log_annotation(LogMessageType message_type, int file_descriptor)
+int write_log_annotation(LogTarget target, LogMessageType message_type)
 {
     assert(logger_properties.filename != NULL);
+    assert(target.type == STDOUT || target.fp != NULL);
 
-    time_t timer;
+    time_t timer = {};
     
     memset(timestamp_buffer, '\0', MAX_LOGGER_TIMESTAMP_LEN);
     memset(logger_annotation_buffer, '\0', MAX_LOGGER_ANNOTATION_LEN);
@@ -230,15 +199,25 @@ int write_log_annotation(LogMessageType message_type, int file_descriptor)
 
     strftime(timestamp_buffer, MAX_LOGGER_TIMESTAMP_LEN, " [%Y-%m-%d %H:%M:%S] - [", tm_info);
 
-    if (file_descriptor == STDOUT_FILENO && message_type != INFO)
+    FILE* fp = target.fp;
+
+    if (target.type == STDOUT)
     {
-        if (message_type == WARNING)
+        switch (message_type)
         {
-            strcat(logger_annotation_buffer, ANSI_COLOR_YELLOW);
-        }
-        else if (message_type == ERROR)
-        {
-            strcat(logger_annotation_buffer, ANSI_COLOR_RED);
+            case INFO:
+                fp = stdout;
+                break;
+            case WARNING:
+                fp = stdout;
+                strcat(logger_annotation_buffer, ANSI_COLOR_YELLOW);
+                break;
+            case ERROR:
+                fp = stderr;
+                strcat(logger_annotation_buffer, ANSI_COLOR_RED);
+                break;
+            default:
+                fp = stdout;
         }
     }
 
@@ -247,111 +226,130 @@ int write_log_annotation(LogMessageType message_type, int file_descriptor)
     strcat(logger_annotation_buffer, get_log_message_type_str(message_type));
     strcat(logger_annotation_buffer, "]: ");
 
-    return write(file_descriptor, logger_annotation_buffer, strlen(logger_annotation_buffer)) == -1 ? -1 : 0;
+    return fwrite(logger_annotation_buffer, sizeof(char), strlen(logger_annotation_buffer), fp) == 0 ? -1 : 0;
 }
 
-
-int log_to_text_file(int file_descriptor, const char* message, LogMessageType message_type)
+int vlog_to_target(LogTarget target, LogMessageType message_type, const char* format, va_list va_args)
 {
-    assert(message != NULL);
-    assert(file_descriptor != -1);
+    assert(format != NULL);
+    assert(target.type == STDOUT || target.fp != NULL);
 
-    size_t message_len = strlen(message);
+    FILE* fp = target.fp;
 
-    if (write_log_annotation(message_type, file_descriptor) == -1)
+    if (target.type == STDOUT)
+    {
+        switch (message_type)
+        {
+            case INFO:
+                fp = stdout;
+                break;
+            case WARNING:
+                fp = stdout;
+                strcat(logger_annotation_buffer, ANSI_COLOR_YELLOW);
+                break;
+            case ERROR:
+                fp = stderr;
+                strcat(logger_annotation_buffer, ANSI_COLOR_RED);
+                break;
+            default:
+                fp = stdout;
+        }
+    }
+    else if (target.type == HTML)
+    {
+        const char* color = "black";
+
+        if (message_type == WARNING)
+        {
+            color = "yellow";
+        }
+        else if (message_type == ERROR)
+        {
+            color = "red";
+        }
+
+        if (fprintf(target.fp, "<pre><div style=\"color:") == -1)
+        {
+            return -1;
+        }
+
+        if (fprintf(target.fp, "%s", color) == -1)
+        {
+            return -1;
+        }
+
+        if (fprintf(target.fp, "\">") == -1)
+        {
+            return -1;
+        }
+    }
+
+    if (write_log_annotation(target, message_type) == -1) 
     {
         return -1;
     }
 
-    if (write(file_descriptor, message, message_len) == -1)
+    if (vfprintf(fp, format, va_args) == -1)
     {
         return -1;
     }
 
-    if (write(file_descriptor, "\n", 1) == -1)
+    if (target.type == STDOUT)
     {
-        return -1;
+        
     }
+    switch (target.type)
+    {
+        case STDOUT:
+            if (fprintf(fp, ANSI_COLOR_RESET) == 0)
+            {
+                return -1;
+            }
 
+            if (fprintf(fp, "\n") == 0)
+            {
+                return -1;
+            }
+            break;
+        case TEXT:
+            if (fprintf(fp, "\n") == 0)
+            {
+                return -1;
+            }
+            break;
+        case HTML:
+            if (fprintf(fp, "</div></pre><br>") == 0)
+            {
+                return -1;
+            }
+            break;
+        default:
+            break;
+    }
     return 0;
 }
 
-int log_to_html_file(int file_descriptor, const char* message, LogMessageType message_type)
+int vlog_message_f(LogMessageType message_type, const char* format, va_list va_args)
 {
-    assert(message != NULL);
-    assert(file_descriptor != -1);
+    assert(format != NULL);
+    va_list va_args_copy;
 
-    size_t message_len = strlen(message);
-
-    const char* color = "black";
-
-    if (message_type == WARNING)
+    int log_status_code = 0;
+    
+    if (!logger_properties.logging_on)
     {
-        color = "yellow";
-    }
-    else if (message_type == ERROR)
-    {
-        color = "red";
-    }
-
-    if (write(file_descriptor, "<pre><div style=\"color:", 23) == -1)
-    {
+        print_error(MAKE_ERROR_STRUCT(LOGGER_OFF_WRITE_ERROR));
         return -1;
     }
 
-    if (write(file_descriptor, color, strlen(color)) == -1)
+    for (int i = 0; i < logger_properties.log_targets_count; ++i)
     {
-        return -1;
+        va_copy(va_args_copy, va_args);
+        if (vlog_to_target(logger_properties.log_targets[i], message_type, format, va_args_copy) == -1)
+        {
+            print_error(MAKE_ERROR_STRUCT(LOG_WRITE_ERROR));
+            log_status_code = -1;
+        }
     }
-
-    if (write(file_descriptor, "\">", 2) == -1)
-    {
-        return -1;
-    }
-
-    if (write_log_annotation(message_type, file_descriptor) == -1)
-    {
-        return -1;
-    }
-
-    if (write(file_descriptor, message, message_len) == -1)
-    {
-        return -1;
-    }
-
-    if (write(file_descriptor, "</div></pre><br>", 16) == -1)
-    {
-        return -1;
-    }
-
-    return 0;
-}
-
-int log_to_stdout(int file_descriptor, const char* message, LogMessageType message_type)
-{
-    assert(message != NULL);
-
-    size_t message_len = strlen(message);    
-
-    if (write_log_annotation(message_type, file_descriptor) == -1)
-    {
-        return -1;
-    }
-
-    if (write(file_descriptor, message, message_len) == -1)
-    {
-        return -1;
-    }
-
-    if (write(file_descriptor, ANSI_COLOR_RESET, ANSI_COLOR_RESET_LEN) == -1)
-    {
-        return -1;
-    }
-
-    if (write(file_descriptor, "\n", 1) == -1)
-    {
-        return -1;
-    }
-
-    return 0;
+    return log_status_code;
 }

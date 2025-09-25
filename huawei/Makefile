@@ -9,7 +9,7 @@ CFLAGS=-D _DEBUG -g -ggdb3 -std=c++20 -O0 -Wall -Wextra -Wpedantic -Weffc++ -Wag
 -fstrict-overflow -fno-omit-frame-pointer -Wlarger-than=65536 -Wstack-usage=65536 -pie -fPIE -Wno-format-nonliteral -fsanitize=address \
 -fsanitize=undefined -Wstrict-aliasing=2
 
-LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort
+LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort stack
 EXECUTABLE_SUBDIRS=onegin_main stack_main
 TEST_SUBDIRS=tests
 

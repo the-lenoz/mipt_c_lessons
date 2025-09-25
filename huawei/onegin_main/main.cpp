@@ -32,7 +32,7 @@ int main(int argc, const char** argv)
     
     if (argc < 3)
     {
-        LOG_MESSAGE("Usage: onegin [input.txt] [output.txt]", ERROR);
+        LOG_MESSAGE_F(ERROR, "Usage: onegin [input.txt] [output.txt]");
         return -1;
     }
     
@@ -46,7 +46,7 @@ int process_onegin_files(const char* input_path, const char* output_path)
     
     my_string* onegin_buffer = NULL;
     
-    LOG_MESSAGE("Чтение...", INFO);
+    LOG_MESSAGE_F(INFO, "Чтение...");
     
     size_t lines_num = allocate_and_read_lines(input_path, &onegin_buffer);
     if (onegin_buffer == NULL)
@@ -61,21 +61,21 @@ int process_onegin_files(const char* input_path, const char* output_path)
     
     write_string_to_file(output_path, "Sorted (from start to end):\n", 1);
     
-    LOG_MESSAGE("Сортировка по префиксу...", INFO);
+    LOG_MESSAGE_F(INFO, "Сортировка по префиксу...");
     quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
         lexycographic_alpha_my_str_prefix_comparator, -1);
 
-    LOG_MESSAGE("Запись в файл...", INFO);
+    LOG_MESSAGE_F(INFO, "Запись в файл...");
     write_lines(output_path, onegin_buffer, lines_num, onegin_len);
     
     write_string_to_file(output_path,
          "\n=================================================================\nSorted (from end to start):\n", 0);
 
-    LOG_MESSAGE("Сортировка по суффиксу...", INFO);
+    LOG_MESSAGE_F(INFO, "Сортировка по суффиксу...");
     quick_sort(onegin_buffer, lines_num, sizeof(onegin_buffer[0]),
         lexycographic_alpha_my_str_suffix_comparator, -1);
 
-    LOG_MESSAGE("запись в файл...", INFO);
+    LOG_MESSAGE_F(INFO, "запись в файл...");
     write_lines(output_path,
          onegin_buffer, lines_num, onegin_len);
 
@@ -83,7 +83,7 @@ int process_onegin_files(const char* input_path, const char* output_path)
          "\n====================================================================\nOriginal:\n", 0);
     write_string_to_file(output_path, whole_onegin_buffer, 0);
 
-    LOG_MESSAGE("Очистка и освобождение ресурсов...", INFO);
+    LOG_MESSAGE_F(INFO, "Очистка и освобождение ресурсов...");
 
     free(whole_onegin_buffer);
     free(onegin_buffer);

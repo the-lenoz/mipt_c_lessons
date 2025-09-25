@@ -5,11 +5,12 @@
 #define MAX_LOGGER_TIMESTAMP_LEN    31
 #define MAX_LINE_NUMBER_STR_LEN     32
 
-#define LOG_MESSAGE_AND_EXIT_ON_ERROR(message) if (message != NULL && LOG_MESSAGE(message, ERROR) == -1) return -1;
-
 #define HTML_FILE_SUFFIX ".html"
 
+#include <stdio.h>
+
 #include "status.hpp"
+
 
 enum LogMessageType
 {
@@ -28,7 +29,7 @@ enum LogTargetType
 struct LogTarget
 {
     const char* file_path;
-    int file_descriptor;
+    FILE* fp;
     LogTargetType type;
 };
 
@@ -51,12 +52,14 @@ struct LoggerProperties
 int LOG_START(const char* filename, int log_targets_count, LogTarget* log_targets);
 
 //--------------------------------------------------------------
-//! @brief int LOG_MESSAGE(const char* message)
+//! @brief int LOG_MESSAGE_F(const char* message)
 //! Function logs message
-//! @param [in] message
+//! @param [in] message_type
+//! @param [in] format
+//! @param [in] ...
 //! @return 0 if logged successfully else -1
 //--------------------------------------------------------------
-int LOG_MESSAGE(const char* message, LogMessageType message_type);
+int LOG_MESSAGE_F(LogMessageType message_type, const char* format, ...);
 
 //--------------------------------------------------------------
 //! @brief int LOG_ERROR(StatusData error_data)
@@ -84,41 +87,15 @@ const char* get_log_message_type_str(LogMessageType message_type);
 //--------------------------------------------------------------
 //! @brief int write_log_annotation(const char* log_file_path)
 //! Function logs logger annotation
+//! @param [in] target
 //! @param [in] message_type
-//! @param [in] file_descriptor
 //! @return -1 on error else 0
 //--------------------------------------------------------------
-int write_log_annotation(LogMessageType message_type, int file_descriptor);
+int write_log_annotation(LogTarget target, LogMessageType message_type);
 
-//--------------------------------------------------------------
-//! @brief int log_to_text_file(int file_descriptor, const char* message, LogMessageType message_type)
-//! Function logs message to text log file
-//! @param [in] file_descriptor
-//! @param [in] message
-//! @param [in] message_type
-//! @return -1 on error else 0
-//--------------------------------------------------------------
-int log_to_text_file(int file_descriptor, const char* message, LogMessageType message_type);
+int vlog_message_f(LogMessageType message_type, const char* format, va_list va_args);
 
-//--------------------------------------------------------------
-//! @brief int log_to_html_file(int file_descriptor, const char* message, LogMessageType message_type)
-//! Function logs message to html log file
-//! @param [in] file_descriptor
-//! @param [in] message
-//! @param [in] message_type
-//! @return -1 on error else 0
-//--------------------------------------------------------------
-int log_to_html_file(int file_descriptor, const char* message, LogMessageType message_type);
-
-//--------------------------------------------------------------
-//! @brief int log_to_stdout(const char* message, LogMessageType message_type)
-//! Function logs message to stdout
-//! @param [in] file_descriptor
-//! @param [in] message
-//! @param [in] message_type
-//! @return -1 on error else 0
-//--------------------------------------------------------------
-int log_to_stdout(int file_descriptor, const char* message, LogMessageType message_type);
+int vlog_to_target(LogTarget target, LogMessageType message_type, const char* format, va_list va_args);
 
 
 #endif // LOGGER_DECLARED
