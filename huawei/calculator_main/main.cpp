@@ -1,10 +1,12 @@
+#include "stack/stack.hpp"
+
 #include "error_handling/my_assert.hpp"
 #include "logger.hpp"
 
 LogTarget log_targets[] = {
     {
         .file_path=NULL
-    }
+    },
 };
 const size_t log_tergets_len = sizeof(log_targets) / sizeof(log_targets[0]);
 
@@ -16,7 +18,12 @@ int main(int argc, char** argv)
 
     LOG_START(argv[0], (int)log_tergets_len, log_targets);
 
-    //
+    Stack st = {};
+    stack_init(&st);
+
+    
+    
+    stack_destroy(&st);
 
     return 0;
 }
