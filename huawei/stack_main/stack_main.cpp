@@ -1,9 +1,5 @@
-#include "stack/stack.hpp"
-
 #include "error_handling/my_assert.hpp"
 #include "logger.hpp"
-#include "strings/mystr.hpp"
-#include <cstddef>
 
 LogTarget log_targets[] = {
     {

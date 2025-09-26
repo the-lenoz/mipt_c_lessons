@@ -32,6 +32,13 @@ void stack_destroy(Stack* st)
 
 void stack_push(Stack* st, STACK_ELEM_TYPE value)
 {
+    StatusData stack_validity = stack_validate(st);
+    if (stack_validity.status_code != SUCCESS)
+    {
+        LOG_ERROR(stack_validity);
+        st->last_operation_status_code = STACK_INVALID;
+        return;
+    }
     stack_fit_size(st);    
 
     st->data[st->size++] = value;
