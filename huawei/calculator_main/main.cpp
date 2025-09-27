@@ -1,7 +1,9 @@
+#include "calculator/calculator.hpp"
 #include "stack/stack.hpp"
 
 #include "error_handling/my_assert.hpp"
 #include "logger.hpp"
+#include "status.hpp"
 
 LogTarget log_targets[] = {
     {
@@ -21,8 +23,12 @@ int main(int argc, char** argv)
     Stack st = {};
     stack_init(&st);
 
-    
-    
+    StatusData status = run_loop(&st);
+    if (status.status_code != SUCCESS)
+    {
+        LOG_ERROR(status);
+    }
+
     stack_destroy(&st);
 
     return 0;

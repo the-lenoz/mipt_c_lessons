@@ -12,7 +12,7 @@
 const char *const hex_numbers = "0123456789abcdef";
 
 
-#define STACK_ELEM_TYPE char*
+#define STACK_ELEM_TYPE double
 
 enum StackOperationStatusCode
 {

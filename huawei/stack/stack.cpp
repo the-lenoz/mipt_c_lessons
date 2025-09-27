@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstring>
 #include <stdlib.h>
 #include "stack.hpp"
 #include "error_handling/my_assert.hpp"
@@ -24,7 +25,7 @@ void stack_init(Stack* st)
     st->data[0] = st->left_canary;
     st->data[st->capacity - 1] = st->right_canary;
     st->hash = stack_calc_hash(st);
-}
+    }
 
 void stack_destroy(Stack* st)
 {
@@ -41,11 +42,19 @@ void stack_push(Stack* st, STACK_ELEM_TYPE value)
     if (stack_validity.status_code != SUCCESS)
     {
         st->last_operation_status = stack_validity;
-        return;
+        st->hash = stack_calc_hash(st);
+                return;
     }
-    stack_fit_size(st);    
-
+    if (stack_fit_size(st) == -1)
+    {
+        st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack");
+        st->hash = stack_calc_hash(st);
+                    return;   
+    }   
+    
     st->data[st->size++ + 1] = value;
+
+    st->last_operation_status = MAKE_SUCCESS_STRUCT(NULL);
     st->hash = stack_calc_hash(st);
 }
 
@@ -64,14 +73,23 @@ STACK_ELEM_TYPE stack_pop(Stack* st)
     else if (st->size == 0)
     {
         st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is empty");
+        st->hash = stack_calc_hash(st);
+                return elem;    
     }
     else 
     {
         elem = st->data[--(st->size) + 1];
-        stack_fit_size(st);
+        st->hash = stack_calc_hash(st);
+                if (stack_fit_size(st) == -1)
+        {
+            st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack");
+            st->hash = stack_calc_hash(st);
+                        return elem;   
+        }
     }
+    st->last_operation_status = MAKE_SUCCESS_STRUCT(NULL);
     st->hash = stack_calc_hash(st);
-    return elem;    
+        return elem;    
 }
 
 int stack_fit_size(Stack* st)
@@ -91,14 +109,15 @@ int stack_fit_size(Stack* st)
         if (st->data == NULL)
         {
             st->last_operation_status = MAKE_ERROR_STRUCT(CANNOT_ALLOCATE_MEMORY_ERROR);
-            return -1;
+            st->hash = stack_calc_hash(st);
+                        return -1;
         }
 
         st->capacity = new_capacity;
 
         st->data[st->capacity - 1] = st->right_canary;
         st->hash = stack_calc_hash(st);
-    }
+            }
     return 0;
 }
 
@@ -120,11 +139,11 @@ StatusData stack_validate(Stack* st)
     {
         return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st->capacity is zero");
     }
-    else if (st->data[0] != st->left_canary)
+    else if (memcmp(&(st->data[0]), &(st->left_canary), sizeof(STACK_ELEM_TYPE)) != 0)
     {
         return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st left canary broken");
     }
-    else if (st->data[st->capacity - 1] != st->right_canary)
+    else if (memcmp(&(st->data[st->capacity - 1]), &(st->right_canary), sizeof(STACK_ELEM_TYPE)) != 0)
     {
         return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st right canary broken");
     }
@@ -170,7 +189,6 @@ void stack_dump(Stack* st, LogMessageType dump_message_type)
 unsigned int stack_calc_hash(Stack* st)
 {
     size_t structure_len = (size_t) ((char*)&(st->hash) - (char*)st);
-
     return calc_shift_hash((unsigned char*)st, structure_len, HASH_BASE_SEED);
 }
 
