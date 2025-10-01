@@ -53,7 +53,7 @@ int main(int argc, char** argv)
         } 
         else
         {
-            LOG_MESSAGE_F("Test PASSED", INFO);
+            LOG_MESSAGE_F(INFO, "Test PASSED");
         }
     }
     return tests_failed;

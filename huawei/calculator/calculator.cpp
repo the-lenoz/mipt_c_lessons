@@ -22,7 +22,7 @@ StatusData run_loop(Stack* st)
         command = {.arg=NAN};
         if (sscanf(line, " %15s %lg", command.command_str, &command.arg) == 0)
         {
-            break;
+            continue;
         }
         free(line);
 
@@ -54,9 +54,9 @@ StatusData parse_command(CalculatorCommand* command)
     else if (strcmp(command->command_str, "MUL") == 0) command->command = MUL;
     else if (strcmp(command->command_str, "DIV") == 0) command->command = DIV;
     else if (strcmp(command->command_str, "SQRT") == 0) command->command = SQRT;
+    else if (strcmp(command->command_str, "DUMP") == 0) command->command = DUMP;
     else return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Syntax error: unknown command");
     return MAKE_SUCCESS_STRUCT(NULL);
-
 }
 
 StatusData run_command(CalculatorCommand command, Stack* st)
@@ -163,6 +163,9 @@ StatusData run_command(CalculatorCommand command, Stack* st)
             }
             stack_push(st, sqrt(a));
             status = st->last_operation_status;
+            break;
+        case DUMP:
+            stack_dump(st, INFO);
             break;
         default:
             break;

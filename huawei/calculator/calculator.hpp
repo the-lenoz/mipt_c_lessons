@@ -9,6 +9,7 @@ enum CalculatorInstruction
 {
     PUSH,
     OUT,
+    DUMP,
     HLT,
 
     ADD,
