@@ -2,6 +2,7 @@
 #include "array_operations.hpp"
 #include "stdio.h"
 #include "error_handling/my_assert.hpp"
+#include <cstring>
 #include <ctype.h>
 
 int mc_fgetc(FILE *__restrict stream)
@@ -367,4 +368,9 @@ int is_empty_mystr(my_string s)
     }    
   }
   return 1;
+}
+
+int mc_startswith(const char* s1, const char* s2)
+{
+    return strncmp(s1, s2, strlen(s2)) == 0;
 }

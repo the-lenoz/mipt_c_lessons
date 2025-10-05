@@ -107,6 +107,9 @@
 #define INSTRUCTION_POINTER_ADDR    0x0000000000000000
 
 
+#define MAX_INSTRUCTION_SIZE    OPCODE_SIZE + 4 * ARG_SIZE
+
+
 struct SPU
 {
     uint32_t memory_size;

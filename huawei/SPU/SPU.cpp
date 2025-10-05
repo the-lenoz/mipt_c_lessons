@@ -250,6 +250,9 @@ void SPU_execute_O_INT(SPU* processor, SPUInstruction instr)
 
     uint32_t interrupt_data_ptr = args[1];
 
+    printf_yellow("Executing INT 0x%x 0x%x\n", interrupt_index, interrupt_data_ptr);
+
+
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         interrupt_index = SPU_read_memory_cell(processor, interrupt_index);
