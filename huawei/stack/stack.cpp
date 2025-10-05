@@ -106,10 +106,13 @@ int stack_fit_size(Stack* st)
     if (!stack_is_fit_size(st))
     {
         size_t new_capacity = stack_get_enough_size(st);
+        STACK_ELEM_TYPE* st_data_backup = st->data;
+        
         st->data = (STACK_ELEM_TYPE*) realloc(st->data, new_capacity * sizeof(STACK_ELEM_TYPE));
         
         if (st->data == NULL)
         {
+            st->data = st_data_backup;
             st->last_operation_status = MAKE_ERROR_STRUCT(CANNOT_ALLOCATE_MEMORY_ERROR);
             st->hash = stack_calc_hash(st);
             return -1;
@@ -163,6 +166,7 @@ StatusData stack_validate(Stack* st)
     return MAKE_SUCCESS_STRUCT(NULL);
 }
 
+//! REQUIERS: LOGGER STARTED
 void stack_dump(Stack* st, LogMessageType dump_message_type)
 {
     char val[sizeof(STACK_ELEM_TYPE) * 3 + 1] = {};
@@ -173,33 +177,44 @@ void stack_dump(Stack* st, LogMessageType dump_message_type)
         LOG_ERROR(stack_validity);
     }
 
-    LOG_MESSAGE_F(dump_message_type, "Stack {");
-    LOG_MESSAGE_F(dump_message_type, "  size=%zu,", st->size);
-    LOG_MESSAGE_F(dump_message_type, "  capacity=%zu,", st->capacity);
-    
-    to_hex(val, &(st->left_canary), sizeof(STACK_ELEM_TYPE));
-    LOG_MESSAGE_F(dump_message_type, "  left_canary=0x%s,", val);
-
-    LOG_MESSAGE_F(dump_message_type, "  data={", st->capacity);
-    for (size_t i = 0; i < st->capacity; ++i)
+    if (st != NULL)
     {
-        to_hex(val, &(st->data[i]), sizeof(STACK_ELEM_TYPE));
-        if (i > st->size && i < st->capacity - 1) 
+        LOG_MESSAGE_F(dump_message_type, "Stack {");
+        LOG_MESSAGE_F(dump_message_type, "  size=%zu,", st->size);
+        LOG_MESSAGE_F(dump_message_type, "  capacity=%zu,", st->capacity);
+        
+        to_hex(val, &(st->left_canary), sizeof(STACK_ELEM_TYPE));
+        LOG_MESSAGE_F(dump_message_type, "  left_canary=0x%s,", val);
+
+        LOG_MESSAGE_F(dump_message_type, "  data={");
+        if (st->data == NULL)
         {
-            LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,\t//GARBAGE", i, val);    
+            LOG_MESSAGE_F(dump_message_type, "=== NULLPTR ===");   
         }
-        else 
+        else
         {
-            LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,", i, val);            
+            for (size_t i = 0; i < st->capacity; ++i)
+            {
+                to_hex(val, &(st->data[i]), sizeof(STACK_ELEM_TYPE));
+                if (i > st->size && i < st->capacity - 1) 
+                {
+                    LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,\t//GARBAGE", i, val);    
+                }
+                else 
+                {
+                    LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,", i, val);            
+                }
+            }
         }
+        
+        LOG_MESSAGE_F(dump_message_type, "  },");
+        
+        to_hex(val, &(st->right_canary), sizeof(STACK_ELEM_TYPE));
+        LOG_MESSAGE_F(dump_message_type, "  right_canary=0x%s,", val);
+        
+        LOG_MESSAGE_F(dump_message_type, "  hash=%u", st->hash);
+        LOG_MESSAGE_F(dump_message_type, "}\n");
     }
-    LOG_MESSAGE_F(dump_message_type, "  },", st->capacity);
-    
-    to_hex(val, &(st->right_canary), sizeof(STACK_ELEM_TYPE));
-    LOG_MESSAGE_F(dump_message_type, "  right_canary=0x%s,", val);
-    
-    LOG_MESSAGE_F(dump_message_type, "  hash=%u", st->hash);
-    LOG_MESSAGE_F(dump_message_type, "}\n", st->capacity);
 }
 
 STACK_ELEM_TYPE* stack_get_left_canary_address(Stack* st)
