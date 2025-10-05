@@ -29,7 +29,8 @@ StatusData run_loop(Stack* st)
         status = parse_command(&command);
         if (status.status_code != SUCCESS)
         {
-            return status;
+            LOG_ERROR(status);
+            stack_dump(st, ERROR);
         }
 
         status = run_command(command, st);
@@ -55,7 +56,7 @@ StatusData parse_command(CalculatorCommand* command)
     else if (strcmp(command->command_str, "DIV") == 0) command->command = DIV;
     else if (strcmp(command->command_str, "SQRT") == 0) command->command = SQRT;
     else if (strcmp(command->command_str, "DUMP") == 0) command->command = DUMP;
-    else return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Syntax error: unknown command");
+    else return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Syntax error: unknown command", NULL);
     return MAKE_SUCCESS_STRUCT(NULL);
 }
 
@@ -68,7 +69,7 @@ StatusData run_command(CalculatorCommand command, Stack* st)
         case PUSH:
             if (isnan(command.arg))
             {
-                status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Syntax error: invalid PUSH arg");
+                status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Syntax error: invalid PUSH arg", NULL);
                 break;
             }
             stack_push(st, command.arg);

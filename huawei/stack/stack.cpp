@@ -2,6 +2,7 @@
 #include <cstring>
 #include <stdlib.h>
 #include "stack.hpp"
+#include "debug_utilites/debug_utilites.hpp"
 #include "error_handling/my_assert.hpp"
 #include "logger.hpp"
 #include "status.hpp"
@@ -12,7 +13,7 @@ void stack_init(Stack* st)
 
     st->last_operation_status = MAKE_SUCCESS_STRUCT(NULL);
     st->size = 0;
-    st->capacity = 2;
+    st->capacity = stack_get_enough_size(st);
     st->data = (STACK_ELEM_TYPE*) calloc(st->capacity * 2, sizeof(STACK_ELEM_TYPE));
 
     if (st->data == NULL)
@@ -22,10 +23,11 @@ void stack_init(Stack* st)
 
     st->left_canary = create_canary();
     st->right_canary = create_canary();
-    st->data[0] = st->left_canary;
-    st->data[st->capacity - 1] = st->right_canary;
+    *stack_get_left_canary_address(st) = st->left_canary;
+    *stack_get_right_canary_address(st) = st->right_canary;
+
     st->hash = stack_calc_hash(st);
-    }
+}
 
 void stack_destroy(Stack* st)
 {
@@ -43,13 +45,13 @@ void stack_push(Stack* st, STACK_ELEM_TYPE value)
     {
         st->last_operation_status = stack_validity;
         st->hash = stack_calc_hash(st);
-                return;
+        return;
     }
     if (stack_fit_size(st) == -1)
     {
-        st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack");
+        st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack", NULL);
         st->hash = stack_calc_hash(st);
-                    return;   
+        return;   
     }   
     
     st->data[st->size++ + 1] = value;
@@ -72,9 +74,9 @@ STACK_ELEM_TYPE stack_pop(Stack* st)
     }
     else if (st->size == 0)
     {
-        st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is empty");
+        st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is empty", NULL);
         st->hash = stack_calc_hash(st);
-                return elem;    
+        return elem;    
     }
     else 
     {
@@ -82,9 +84,9 @@ STACK_ELEM_TYPE stack_pop(Stack* st)
         st->hash = stack_calc_hash(st);
                 if (stack_fit_size(st) == -1)
         {
-            st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack");
+            st->last_operation_status = MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "Cannot fit stack", NULL);
             st->hash = stack_calc_hash(st);
-                        return elem;   
+            return elem;   
         }
     }
     st->last_operation_status = MAKE_SUCCESS_STRUCT(NULL);
@@ -101,51 +103,61 @@ int stack_fit_size(Stack* st)
         return -1;
     }
 
-    if (st->size < st->capacity / 2 - 3 || st->size > st->capacity - 3)
+    if (!stack_is_fit_size(st))
     {
-        size_t new_capacity = st->size * 2 + 3;
+        size_t new_capacity = stack_get_enough_size(st);
         st->data = (STACK_ELEM_TYPE*) realloc(st->data, new_capacity * sizeof(STACK_ELEM_TYPE));
         
         if (st->data == NULL)
         {
             st->last_operation_status = MAKE_ERROR_STRUCT(CANNOT_ALLOCATE_MEMORY_ERROR);
             st->hash = stack_calc_hash(st);
-                        return -1;
+            return -1;
         }
 
         st->capacity = new_capacity;
 
-        st->data[st->capacity - 1] = st->right_canary;
+        *stack_get_right_canary_address(st) = st->right_canary;
         st->hash = stack_calc_hash(st);
-            }
+    }
     return 0;
+}
+
+int stack_is_fit_size(Stack* st)
+{
+    return st->size >= st->capacity / 2 - 3 && st->size <= st->capacity - 3;
+}
+
+size_t stack_get_enough_size(Stack* st)
+{
+    return st->size * 2 + 3;
 }
 
 StatusData stack_validate(Stack* st)
 {
     if (st == NULL)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is NULL");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is NULL", NULL);
     }
     else if (stack_calc_hash(st) != st->hash)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st hash sum mismatch");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st hash sum mismatch", NULL);
     }
     else if (st->size > st->capacity)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is invalid size");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st is invalid size", NULL);
     }
     else if (st->capacity == 0)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st->capacity is zero");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st->capacity is zero", NULL);
     }
     else if (memcmp(&(st->data[0]), &(st->left_canary), sizeof(STACK_ELEM_TYPE)) != 0)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st left canary broken");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st left canary broken", NULL);
     }
     else if (memcmp(&(st->data[st->capacity - 1]), &(st->right_canary), sizeof(STACK_ELEM_TYPE)) != 0)
     {
-        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st right canary broken");
+        return MAKE_EXTENDED_ERROR_STRUCT(INVALID_FUNCTION_PARAM, "st right canary broken", NULL);
     }
 
     return MAKE_SUCCESS_STRUCT(NULL);
@@ -153,36 +165,51 @@ StatusData stack_validate(Stack* st)
 
 void stack_dump(Stack* st, LogMessageType dump_message_type)
 {
-    char val[sizeof(STACK_ELEM_TYPE) * 2 + 1] = {};
-    unsigned char byte = 0;
+    char val[sizeof(STACK_ELEM_TYPE) * 3 + 1] = {};
+    
     StatusData stack_validity = stack_validate(st);
     if (stack_validity.status_code != SUCCESS)
     {
         LOG_ERROR(stack_validity);
-        return;
     }
-    else
+
+    LOG_MESSAGE_F(dump_message_type, "Stack {");
+    LOG_MESSAGE_F(dump_message_type, "  size=%zu,", st->size);
+    LOG_MESSAGE_F(dump_message_type, "  capacity=%zu,", st->capacity);
+    
+    to_hex(val, &(st->left_canary), sizeof(STACK_ELEM_TYPE));
+    LOG_MESSAGE_F(dump_message_type, "  left_canary=0x%s,", val);
+
+    LOG_MESSAGE_F(dump_message_type, "  data={", st->capacity);
+    for (size_t i = 0; i < st->capacity; ++i)
     {
-        LOG_MESSAGE_F(dump_message_type, "Stack {");
-        LOG_MESSAGE_F(dump_message_type, "  size=%zu,", st->size);
-        LOG_MESSAGE_F(dump_message_type, "  capacity=%zu,", st->capacity);
-        LOG_MESSAGE_F(dump_message_type, "  data={", st->capacity);
-        
-        for (size_t i = 0; i < st->size; ++i)
+        to_hex(val, &(st->data[i]), sizeof(STACK_ELEM_TYPE));
+        if (i > st->size && i < st->capacity - 1) 
         {
-            for (size_t j = 0; j < sizeof(STACK_ELEM_TYPE); ++j)
-            {
-                byte = ((unsigned char*)(&(st->data[i + 1])))[j];
-                val[j*2] = hex_numbers[(byte & 0xF0) >> 4];
-                val[j*2 + 1] = hex_numbers[(byte & 0x0F) >> 0];
-            }
-            LOG_MESSAGE_F(dump_message_type, "    [%zu]=0x%s", i, val);
+            LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,\t//GARBAGE", i, val);    
         }
-        
-        LOG_MESSAGE_F(dump_message_type, "  },", st->capacity);
-        LOG_MESSAGE_F(dump_message_type, "  hash=%u", st->hash);
-        LOG_MESSAGE_F(dump_message_type, "}\n", st->capacity);
+        else 
+        {
+            LOG_MESSAGE_F(dump_message_type, "    [%zu]=%s,", i, val);            
+        }
     }
+    LOG_MESSAGE_F(dump_message_type, "  },", st->capacity);
+    
+    to_hex(val, &(st->right_canary), sizeof(STACK_ELEM_TYPE));
+    LOG_MESSAGE_F(dump_message_type, "  right_canary=0x%s,", val);
+    
+    LOG_MESSAGE_F(dump_message_type, "  hash=%u", st->hash);
+    LOG_MESSAGE_F(dump_message_type, "}\n", st->capacity);
+}
+
+STACK_ELEM_TYPE* stack_get_left_canary_address(Stack* st)
+{
+    return &(st->data[0]);
+}
+
+STACK_ELEM_TYPE* stack_get_right_canary_address(Stack* st)
+{
+    return &(st->data[st->capacity - 1]);
 }
 
 
@@ -197,10 +224,8 @@ unsigned int calc_shift_hash(const unsigned char* val, size_t len, unsigned int 
 {
     if (len == 0) return state;
     return calc_shift_hash(val + 1, len - 1, 
-        (unsigned int)(((unsigned long) val[0] * state) % (unsigned long)(MAX_HASH_STATE)))
-            ^ ((unsigned int)(val[0] << 4) + val[0]);
+        (unsigned int)(((unsigned long) val[0] * state) % (unsigned long)(MAX_HASH_STATE))) ^ ((unsigned int)(val[0] << 4) + val[0]);
 }
-
 
 STACK_ELEM_TYPE create_canary()
 {

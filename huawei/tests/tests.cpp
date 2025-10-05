@@ -49,7 +49,7 @@ int main(int argc, char** argv)
         tests_failed += current_test_result;
         if (current_test_result != 0)
         {
-            LOG_ERROR(MAKE_EXTENDED_ERROR_STRUCT(TEST_FAILED_ERROR, tests[i].test_name));
+            LOG_ERROR(MAKE_EXTENDED_ERROR_STRUCT(TEST_FAILED_ERROR, tests[i].test_name, NULL));
         } 
         else
         {

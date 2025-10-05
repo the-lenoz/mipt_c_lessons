@@ -1,6 +1,8 @@
 #ifndef ERRORS_DECLARED
 #define ERRORS_DECLARED
 
+#include <stdio.h>
+
 
 #define MAKE_ERROR_STRUCT(stat_code) {\
             .status_code = stat_code,\
@@ -9,12 +11,13 @@
             .line_number = __LINE__\
         }
 
-#define MAKE_EXTENDED_ERROR_STRUCT(stat_code, description) {\
+#define MAKE_EXTENDED_ERROR_STRUCT(stat_code, description, dumper_ptr) {\
             .status_code = stat_code,\
             .filename = __FILE__,\
             .func_name = __func__,\
             .line_number = __LINE__,\
-            .error_description = description\
+            .error_description = description,\
+            .dumper = dumper_ptr\
         }
         
 #define MAKE_SUCCESS_STRUCT(data) {.status_code=SUCCESS, .success_data=data}
@@ -46,7 +49,10 @@ struct StatusData
     int line_number;
     const char* error_description;
     void* success_data;
+    int (*dumper) (FILE* fp, StatusData error_data);
 };
+
+typedef int (*error_dumper) (FILE* fp, StatusData error_data);
 
 //------------------------------------------------------------------------
 //! @brief void print_error(StatusData error)
