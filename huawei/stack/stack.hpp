@@ -1,6 +1,9 @@
 #ifndef STACK_DECLARED
 #define STACK_DECLARED
 
+#include "SPU_assembler/SPU_assembler.hpp"
+
+
 #define TypeOf(x) _Generic((x),                         \
                         short: SHORT_T,                 \
                         unsigned short: USHORT_T,       \
@@ -19,12 +22,9 @@
 #include <stdlib.h>
 
 
-#define HASH_BASE_SEED 997*991
-#define MAX_HASH_STATE (1L << 31) - 1
 
 
-
-typedef double STACK_ELEM_TYPE;
+typedef ASMLabel STACK_ELEM_TYPE;
 
 enum StackOperationStatusCode
 {
@@ -71,26 +71,9 @@ void stack_push(Stack* st, STACK_ELEM_TYPE value);
 
 STACK_ELEM_TYPE stack_pop(Stack* st);
 
-int stack_fit_size(Stack* st);
-
-int stack_is_fit_size(Stack* st);
-
-size_t stack_get_enough_size(Stack* st);
-
 StatusData stack_validate(Stack* st);
 
 void stack_dump(Stack* st, LogMessageType dump_message_type);
-
-STACK_ELEM_TYPE* stack_get_left_canary_address(Stack* st);
-
-STACK_ELEM_TYPE* stack_get_right_canary_address(Stack* st);
-
-unsigned int stack_calc_hash(Stack* st);
-
-
-unsigned int calc_shift_hash(const unsigned char* val, size_t len, unsigned int state);
-
-STACK_ELEM_TYPE create_canary();
 
 
 #endif // STACK_DECLARED

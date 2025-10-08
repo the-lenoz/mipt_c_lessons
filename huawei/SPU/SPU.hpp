@@ -13,7 +13,7 @@
 #define DUMP_ROW_SIZE   32
 
 /*******************************************************
-//! Argument size == sizoif(size_t) ==  DWORD
+//! Argument size == sizeof(size_t) ==  DWORD
 //!
 //! 1 bit for arguments type:
 //! 0 - all types are AS IS
@@ -50,7 +50,7 @@
 
 
 //! (INDEX: size_t) (DATA: void*) 
-#define O_INT           (0b00000 | ARG_NUM_2)
+#define O_OUT           (0b00000 | ARG_NUM_2)
 
 //! (DST: void*) (VAL: size_t)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST
 #define O_MOV_CONST     (0b00001 | ARG_NUM_2)
@@ -96,8 +96,12 @@
 #define O_MUL           (0b00110 | ARG_NUM_4)
 #define O_DIV           (0b00111 | ARG_NUM_4)
 
+
 //! (FLAG: size_t*) (DST: void*) (SRC: void*) (COUNT: size_t*) 
 #define O_CMOV          (0b01000 | ARG_NUM_4)
+
+//! (FLAG: size_t*) (A: void*) (B: void*) (COUNT: size_t*) 
+#define O_LT           (0b01001 | ARG_NUM_4)
 
 
 //!  ()
@@ -114,6 +118,7 @@ struct SPU
 {
     uint32_t memory_size;
     void* memory;
+    uint32_t current_instruction_pointer;
     StatusData last_operation_status;
     int is_running;
 };
@@ -150,7 +155,7 @@ void SPU_write_memory_cell(SPU* processor, uint32_t virtual_addr, uint32_t value
 void SPU_write_memory(SPU *processor, uint32_t virtual_dst, void* real_src, size_t count);
 void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_t count);
 
-
+uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr);
 
 
 void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr);
@@ -166,6 +171,8 @@ struct SPUInstruction
 };
 
 
+SPUInstruction parse_instruction(void* instruction_ptr);
+
 
 typedef void (*instruction_executor) (SPU* processor, SPUInstruction instr);
 
@@ -174,7 +181,7 @@ void SPU_execute_O_NOP(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_HLT(SPU* processor, SPUInstruction instr);
 
 
-void SPU_execute_O_INT(SPU* processor, SPUInstruction instr);
+void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_MOV_CONST(SPU* processor, SPUInstruction instr);
 
 void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr);
@@ -206,6 +213,9 @@ void SPU_execute_O_MUL(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_DIV(SPU* processor, SPUInstruction instr);
 
 void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr);
+
+void SPU_execute_O_LT(SPU* processor, SPUInstruction instr);
+
 void SPU_execute_O_CALL(SPU* processor, SPUInstruction instr);
 
 
@@ -226,10 +236,10 @@ const SPUInstruction instructions[] =
 
 
     {
-        .opcode = O_INT,
+        .opcode = O_OUT,
         .args_num = 2,
-        .executor = SPU_execute_O_INT,
-        .name = "INT"
+        .executor = SPU_execute_O_OUT,
+        .name = "OUT"
     },
     {
         .opcode = O_MOV_CONST,
@@ -353,6 +363,13 @@ const SPUInstruction instructions[] =
         .name = "CMOV"
     },
     {
+        .opcode = O_LT,
+        .args_num = 4,
+        .executor = SPU_execute_O_LT,
+        .name = "LT"
+    },
+
+    {
         .opcode = O_CALL,
         .args_num = 4,
         .executor = SPU_execute_O_CALL,
@@ -364,18 +381,18 @@ const size_t instructions_number = sizeof(instructions) / sizeof(instructions[0]
 
 
 
-typedef void (*interrupt_handler) (SPU* processor, uint32_t data_ptr);
+typedef void (*port_out_handler) (SPU* processor, uint32_t data_ptr);
 
 
 void SPU_handle_print_DWORD_number(SPU* processor, uint32_t data_ptr);
 
 
-const interrupt_handler interrupt_handlers[] = 
+const port_out_handler port_out_handlers[] = 
 {
     SPU_handle_print_DWORD_number,
 };
 
-const size_t interrupt_handlers_number = sizeof(interrupt_handlers) / sizeof(interrupt_handlers[0]);
+const size_t port_out_handlers_number = sizeof(port_out_handlers) / sizeof(port_out_handlers[0]);
 
 
 

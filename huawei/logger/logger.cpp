@@ -1,4 +1,5 @@
 #include <cstdarg>
+#include <cstddef>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -102,9 +103,46 @@ int LOG_MESSAGE_F(LogMessageType message_type, const char* format, ...)
 
 int LOG_ERROR(StatusData error_data)
 {
+    FILE* fp = NULL;
+
+    if (error_data.status_code == CUSTOM_DATA)
+    {
+        assert(error_data.custom_status_data_handler != NULL);
+        
+        int status = 0;
+        for (int i = 0; i < logger_properties.log_targets_count; ++i)
+        {
+            fp = logger_properties.log_targets[i].fp;
+            if (logger_properties.log_targets[i].type == HTML)
+            {
+                if (fprintf(logger_properties.log_targets[i].fp, "<pre style=\"color:red\">\n") == -1)
+                {
+                    status = -1;
+                }
+            }
+            else if (logger_properties.log_targets[i].type == STDOUT)
+            {
+                fp = stderr;
+            }
+
+            if (error_data.custom_status_data_handler(fp, error_data) == -1)
+                    status = -1;
+
+            if (logger_properties.log_targets[i].type == HTML)
+            {
+                if (fprintf(logger_properties.log_targets[i].fp, "</pre>") == -1)
+                {
+                    status = -1;
+                }
+            }
+        }
+
+        return status;
+    }
+    
     const char* error_description = get_error_description(error_data.status_code);
     void* backtrace_buffer[BACKTRACE_BUFFER_SIZE] = {};
-    FILE* fp = NULL;
+    
 
     backtrace(backtrace_buffer, BACKTRACE_BUFFER_SIZE);
 

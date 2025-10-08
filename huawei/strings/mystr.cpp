@@ -374,3 +374,12 @@ int mc_startswith(const char* s1, const char* s2)
 {
     return strncmp(s1, s2, strlen(s2)) == 0;
 }
+
+int mc_endswith(const char* s1, const char* s2)
+{
+    size_t s1_len = strlen(s1), s2_len = strlen(s2);
+
+    if (s1_len < s2_len) return 0;
+
+    return strncmp(s1 + s1_len - s2_len, s2, s2_len) == 0;
+}

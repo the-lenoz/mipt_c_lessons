@@ -44,5 +44,6 @@ int lexycographic_alpha_my_str_suffix_comparator(const void* s1, const void* s2)
 int is_empty_mystr(my_string s);
 
 int mc_startswith(const char* s1, const char* s2);
+int mc_endswith(const char* s1, const char* s2);
 
 #endif // MYSTR_DECLARED

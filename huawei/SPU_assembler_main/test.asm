@@ -1,13 +1,70 @@
 
-MOVC    0x4     10
-MOVC    0x8     15
+    MOVC    ONE     1
+    MOVC    B       15
+    MOVC    N       16
+    MOVC    n       -10
+    LEA     F1_ptr  FLAG1
+    LT      FLAG1   n       N       4
 
-ADD     0xc     0x4     0x8     0x1; test comment
-INT     0x0     0x8
+
+loop1:
+    ADD     SUM     SUM     B       4
+    SUB     N       N       ONE     4
+    LT      FLAG1   n       N       4
+    OUT     0x0     N
+    $CLEA   F1_ptr  IP      loop1
+;loop1 end
+    OUT     0x0     SUM
+    HLT          
 
 
 
-HLT       
+; DATA
+IP:    
+    NOP ; zeros
+    NOP
+    NOP
+    NOP
 
-  
-  ;hello!
+n:
+    NOP
+    NOP
+    NOP
+    NOP
+
+B:    
+    NOP ; zeros
+    NOP
+    NOP
+    NOP
+
+SUM:    
+    NOP ; zeros
+    NOP
+    NOP
+    NOP
+
+N:
+    NOP ; zeros
+    NOP
+    NOP
+    NOP
+
+ONE:
+    NOP
+    NOP
+    NOP
+    NOP
+
+F1_ptr:
+    NOP
+    NOP
+    NOP
+    NOP
+
+FLAG1:
+    NOP
+    NOP
+    NOP
+    NOP    
+

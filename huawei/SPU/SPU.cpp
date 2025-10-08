@@ -104,7 +104,7 @@ void SPU_run_loop(SPU* processor)
 
 int SPU_is_valid_memaddr(SPU* processor, uint32_t virtual_address)
 {
-    return virtual_address >= 0 && virtual_address < processor->memory_size;
+    return virtual_address < processor->memory_size;
 }
 
 
@@ -115,7 +115,6 @@ StatusData SPU_verify(SPU* processor)   //TODO
 }
 
 
-//! REQUIRES: LOGGER INITIALIZED
 void SPU_dump(SPU* processor)
 {
     char mem_dump_row[DUMP_ROW_SIZE];
@@ -186,6 +185,8 @@ void SPU_write_memory(SPU *processor, uint32_t virtual_dst, void* real_src, size
 
     void* real_dst = SPU_get_real_mem_addr(processor, virtual_dst);
 
+    //printf_yellow("Writing memory: %zu bytes to 0x%x\n", count, virtual_dst);
+
     memcpy(real_dst, real_src, count);
 }
 
@@ -197,7 +198,16 @@ void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_
 
     void* real_src = SPU_get_real_mem_addr(processor, virtual_src);
 
+    //printf_yellow("Reading memory: %zu bytes from 0x%x\n", count, virtual_src);
+
     memcpy(real_dst, real_src, count);
+}
+
+uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr)
+{
+    //uint32_t offset = SPU_read_memory_cell(processor, INSTRUCTION_POINTER_ADDR);
+
+    return (uint32_t)(virtual_relative_ptr + (int32_t)processor->current_instruction_pointer);
 }
 
 
@@ -211,12 +221,18 @@ void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr)
 
     SPUInstruction instruction = parse_instruction(real_instruction_ptr);
 
+
+    uint32_t current_instruction_pointer = SPU_read_memory_cell(processor, INSTRUCTION_POINTER_ADDR);
+
+    processor->current_instruction_pointer = current_instruction_pointer;
+
+    SPU_write_memory_cell(processor, INSTRUCTION_POINTER_ADDR, current_instruction_pointer + OPCODE_SIZE + ARG_SIZE * instruction.args_num);
+
+
     printf_yellow("Executing: '%s'\n", instruction.name);
 
     instruction.executor(processor, instruction);
 
-    uint32_t current_instruction_pointer = SPU_read_memory_cell(processor, INSTRUCTION_POINTER_ADDR);
-    SPU_write_memory_cell(processor, INSTRUCTION_POINTER_ADDR, current_instruction_pointer + OPCODE_SIZE + ARG_SIZE * instruction.args_num);
 }
 
 
@@ -238,7 +254,7 @@ void SPU_execute_O_HLT(SPU* processor, SPUInstruction instr)
 }
 
 
-void SPU_execute_O_INT(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr)
 {
     assert(instr.args_ptr != NULL);
     assert(instr.args_num == 2);
@@ -248,24 +264,26 @@ void SPU_execute_O_INT(SPU* processor, SPUInstruction instr)
 
     uint32_t interrupt_index = args[0];
 
-    uint32_t interrupt_data_ptr = args[1];
+    int32_t relative_interrupt_data_ptr = (int32_t) args[1];
 
-    printf_yellow("Executing INT 0x%x 0x%x\n", interrupt_index, interrupt_data_ptr);
+    uint32_t abs_interrupt_data_ptr = SPU_get_abs_ptr(processor, relative_interrupt_data_ptr);
+
+    printf_yellow("Executing INT 0x%x 0x%x\n", interrupt_index, relative_interrupt_data_ptr);
 
 
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         interrupt_index = SPU_read_memory_cell(processor, interrupt_index);
 
-        interrupt_data_ptr = SPU_read_memory_cell(processor, interrupt_data_ptr);
+        abs_interrupt_data_ptr = SPU_read_memory_cell(processor, abs_interrupt_data_ptr);
     }
     
-    if (interrupt_index >= interrupt_handlers_number || interrupt_handlers[interrupt_index] == NULL)
+    if (interrupt_index >= port_out_handlers_number || port_out_handlers[interrupt_index] == NULL)
     {
         return; // UNKNOWN INTERUPT
     }
 
-    interrupt_handlers[interrupt_index](processor, interrupt_data_ptr);
+    port_out_handlers[interrupt_index](processor, abs_interrupt_data_ptr);
 
     return;
 }
@@ -274,42 +292,45 @@ void SPU_execute_O_MOV_CONST(SPU* processor, SPUInstruction instr)
     uint32_t args[2] = {};
     memcpy(args, instr.args_ptr, 2 * sizeof(args[0]));
 
-    uint32_t destination_ptr = args[0];
+    int32_t relative_destination_ptr = (int32_t) args[0];
 
     uint32_t value = args[1];
+
+    uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);
 
 
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
-        destination_ptr = SPU_read_memory_cell(processor, destination_ptr);
+        abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
     }
 
-    printf_yellow("MOVC dest=%p, value=%u\n", destination_ptr, value);
+    printf_yellow("MOVC dest=%p, value=%u\n", abs_destination_ptr, value);
 
-    SPU_write_memory_cell(processor, destination_ptr, value);
+    SPU_write_memory_cell(processor, abs_destination_ptr, value);
 
     return;
 }
 
 void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr)
 {
-    uint32_t args[2] = {};
+    int32_t args[2] = {};
     memcpy(args, instr.args_ptr, 2 * sizeof(args[0]));
 
-    uint32_t destination_ptr = args[0];
+    int32_t relative_destination_ptr = args[0];
 
-    uint32_t local_ptr_value = args[1];
+    int32_t local_ptr_value = args[1];
 
+    uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);
 
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
-        destination_ptr = SPU_read_memory_cell(processor, destination_ptr);
+        abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
     }
 
-    uint32_t offset = SPU_read_memory_cell(processor, INSTRUCTION_POINTER_ADDR);
+    uint32_t abs_ptr_value = SPU_get_abs_ptr(processor, local_ptr_value);
 
 
-    SPU_write_memory_cell(processor, destination_ptr, offset + local_ptr_value);
+    SPU_write_memory_cell(processor, abs_destination_ptr, abs_ptr_value);
 
     return;
 }
@@ -320,31 +341,35 @@ void SPU_execute_O_MOV(SPU* processor, SPUInstruction instr)
     assert(instr.args_ptr != NULL);
     assert(instr.args_num == 3);
 
-    uint32_t args[3] = {};
+    int32_t args[3] = {};
 
     memcpy(args, instr.args_ptr, 3 * sizeof(args[0]));
 
-    uint32_t dst_ptr = args[0];
+    int32_t relative_dst_ptr = args[0];
+    int32_t relative_src_ptr = args[1];
 
-    uint32_t src_ptr = args[1];
+    int32_t count = args[2];
 
-    uint32_t count = args[2];
+    uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);
+    uint32_t abs_src_ptr = SPU_get_abs_ptr(processor, relative_src_ptr);
+
+    printf_yellow("MOV 0x%x 0x%x %d\n", abs_dst_ptr, abs_src_ptr, count);
 
 
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
-        dst_ptr = SPU_read_memory_cell(processor, dst_ptr);
+        abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
 
-        src_ptr = SPU_read_memory_cell(processor, src_ptr);
+        abs_src_ptr = SPU_read_memory_cell(processor, abs_src_ptr);
 
-        count = SPU_read_memory_cell(processor, count);
+        count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));
     }
     
-    void* real_dst_ptr = SPU_get_real_mem_addr(processor, dst_ptr);
-    void* real_src_ptr = SPU_get_real_mem_addr(processor, src_ptr);
+    void* real_dst_ptr = SPU_get_real_mem_addr(processor, abs_dst_ptr);
+    void* real_src_ptr = SPU_get_real_mem_addr(processor, abs_src_ptr);
 
 
-    memmove(real_dst_ptr, real_src_ptr, count);
+    memmove(real_dst_ptr, real_src_ptr, (uint32_t) count);
 
     return;
 }
@@ -380,20 +405,44 @@ void SPU_execute_O_ALL(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 void SPU_execute_O_ANY(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 
 void SPU_execute_O_CLEA(SPU* processor, SPUInstruction instr)
 {
-    UNUSED(processor);
-    UNUSED(instr);
-    return;;
+    int32_t args[3] = {};
+    memcpy(args, instr.args_ptr, 3 * sizeof(args[0]));
+
+    int32_t flag_ptr = args[0];
+
+
+    int32_t relative_destination_ptr = args[1];
+
+    int32_t local_ptr_value = args[2];
+
+    uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);
+
+    uint32_t flag = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, flag_ptr));
+
+    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    {
+        flag = SPU_read_memory_cell(processor, flag);
+        abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
+    }
+    if (flag)
+    {
+        uint32_t abs_ptr_value = SPU_get_abs_ptr(processor, local_ptr_value);
+
+        SPU_write_memory_cell(processor, abs_destination_ptr, abs_ptr_value);
+    }
+
+    return;
 }
 
 
@@ -402,25 +451,25 @@ void SPU_execute_O_EQ(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 void SPU_execute_O_OR(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 void SPU_execute_O_AND(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 void SPU_execute_O_XOR(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 
 void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
@@ -428,76 +477,195 @@ void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
     assert(instr.args_ptr != NULL);
     assert(instr.args_num == 4);
 
-    uint32_t args[4] = {};
+    int32_t args[4] = {};
     memcpy(args, instr.args_ptr, 4 * ARG_SIZE);
 
-    uint32_t dst_ptr = args[0];
+    int32_t relative_dst_ptr = args[0];
 
-    uint32_t A_ptr = args[1];
-    uint32_t B_ptr = args[2];
+    int32_t relative_A_ptr = args[1];
+    int32_t relative_B_ptr = args[2];
 
-    uint32_t count = args[3];
+    int32_t count = args[3];
+
+
+    uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);
+    
+    uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
+    uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
 
     if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
-        dst_ptr = SPU_read_memory_cell(processor, dst_ptr);
+        abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
 
-        A_ptr = SPU_read_memory_cell(processor, A_ptr);
-        B_ptr = SPU_read_memory_cell(processor, B_ptr);
+        abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
+        abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);
 
-        count = SPU_read_memory_cell(processor, count);
+        count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));
     }
 
-    uint64_t carry = 0, A = 0, B = 0;
+    uint16_t carry = 0;
+    uint8_t a = 0, b = 0;
 
-    for (uint32_t i = 0; i < count * sizeof(uint32_t); i += sizeof(uint32_t))
+    for (uint32_t i = 0; i < (uint32_t)count; ++i)
     {
-        A = SPU_read_memory_cell(processor, A_ptr + i);
-        B = SPU_read_memory_cell(processor, B_ptr + i);
-        carry = A + B + carry;
+        SPU_read_memory(processor, &a, abs_A_ptr + i, 1);
+        SPU_read_memory(processor, &b, abs_B_ptr + i, 1);;
+        carry = (uint16_t)(a + b + carry);
         
-        SPU_write_memory_cell(processor, dst_ptr + i, carry & 0x00000000ffffffff);
-        carry = carry >> 32;
+        SPU_write_memory(processor, abs_dst_ptr + i, &carry, 1);
+        carry = carry / 256;
     }
     
     if (carry)
     {
-        SPU_write_memory_cell(processor, dst_ptr + count * sizeof(uint32_t), carry & 0x00000000ffffffff);
+        SPU_write_memory(processor, abs_dst_ptr + (uint32_t)count, &carry, 1);
     }
 
     return;
 }
 void SPU_execute_O_SUB(SPU* processor, SPUInstruction instr)
 {
-    UNUSED(processor);
-    UNUSED(instr);
-    return;;
+    assert(instr.args_ptr != NULL);
+    assert(instr.args_num == 4);
+
+    int32_t args[4] = {};
+    memcpy(args, instr.args_ptr, 4 * ARG_SIZE);
+
+    int32_t relative_dst_ptr = args[0];
+
+    int32_t relative_A_ptr = args[1];
+    int32_t relative_B_ptr = args[2];
+
+    int32_t count = args[3];
+
+
+    uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);
+    
+    uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
+    uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
+
+
+    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    {
+        abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
+
+        abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
+        abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);
+
+        count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));
+    }
+
+    uint8_t carry = 0;
+    int32_t result = 0;
+    uint8_t a = 0, b = 0;
+
+    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    {
+        SPU_read_memory(processor, &a, abs_A_ptr + i, 1);
+        SPU_read_memory(processor, &b, abs_B_ptr + i, 1);;
+        result = a - b - carry;
+        
+        SPU_write_memory(processor, abs_dst_ptr + i, &result, 1);
+        carry = result >= 0 ? 0 : 1;
+    }
+    
+    if (carry)
+    {
+        SPU_write_memory(processor, abs_dst_ptr + (uint32_t)count, &carry, 1);
+    }
+
+    return;
 }
 void SPU_execute_O_MUL(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 void SPU_execute_O_DIV(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 
 void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
+
+void SPU_execute_O_LT(SPU* processor, SPUInstruction instr)
+{
+    assert(instr.args_ptr != NULL);
+    assert(instr.args_num == 4);
+
+    int32_t args[4] = {};
+    memcpy(args, instr.args_ptr, 4 * ARG_SIZE);
+
+    int32_t relative_flag_ptr = args[0];
+
+    int32_t relative_A_ptr = args[1];
+    int32_t relative_B_ptr = args[2];
+
+    uint32_t count = (uint32_t) args[3];
+
+
+    uint32_t abs_flag_ptr = SPU_get_abs_ptr(processor, relative_flag_ptr);
+    
+    uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
+    uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
+
+
+    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    {
+        abs_flag_ptr = SPU_read_memory_cell(processor, abs_flag_ptr);
+
+        abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
+        abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);
+
+        count = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, (int32_t)count));
+    }
+
+    uint8_t a = 0, b = 0;
+
+    uint8_t Ba = 0, Bb = 0;
+
+    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    {
+        SPU_read_memory(processor, &a, abs_A_ptr + count - 1 - i, 1);
+        SPU_read_memory(processor, &b, abs_B_ptr + count - 1 - i, 1);;
+        
+        if (i == 0)
+        {
+            Ba = (a & 0b10000000) >> 7;
+            Bb = (b & 0b10000000) >> 7;
+        }
+
+        if (a < b)
+        {
+            SPU_write_memory_cell(processor, abs_flag_ptr, Ba == Bb);
+            return;
+        }
+        else if (a > b)
+        {
+            SPU_write_memory_cell(processor, abs_flag_ptr, Ba != Bb);
+            return;
+        }
+    }
+    
+
+    SPU_write_memory_cell(processor, abs_flag_ptr, 0);
+    return;
+}
+
 void SPU_execute_O_CALL(SPU* processor, SPUInstruction instr)
 {
     UNUSED(processor);
     UNUSED(instr);
-    return;;
+    return;
 }
 
 
