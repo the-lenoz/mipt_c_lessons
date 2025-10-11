@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <execinfo.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,18 +9,26 @@
 #include "terminal_decorator/terminal_decorator.hpp"
 
 
-void print_error(StatusData error_data)
+void fprint_error(FILE* fp, StatusData error_data)
 {
     if (error_data.status_code == CUSTOM_DATA)
     {
         assert(error_data.custom_status_data_handler != NULL);
-        
-        error_data.custom_status_data_handler(stderr, error_data);
+
+        fprintf_red(fp, "Произошла ошибка. Файл - %s, функция - %s, строка - %d:\n", 
+            error_data.filename, error_data.func_name, error_data.line_number);
+        error_data.custom_status_data_handler(fp, error_data);
+        free(error_data.custom_status_data);
         return;
     }
     const char* error_code_string = get_error_description(error_data.status_code);
-    fprintf_red(stderr, "Произошла ошибка: %s. Файл - %s, функция - %s, строка - %d\n%s\n",
+    fprintf_red(fp, "Произошла ошибка: %s. Файл - %s, функция - %s, строка - %d\n%s\n",
                 error_code_string, error_data.filename, error_data.func_name, error_data.line_number, error_data.error_description);
+}
+
+void print_error(StatusData error_data)
+{
+    fprint_error(stderr, error_data);
 }
 
 void print_back_trace(void)

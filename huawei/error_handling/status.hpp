@@ -18,6 +18,15 @@
             .line_number = __LINE__,\
             .error_description = description,\
         }
+
+#define MAKE_CUSTOM_ERROR_STRUCT(handler, data) {\
+            .status_code = CUSTOM_DATA,\
+            .filename = __FILE__,\
+            .func_name = __func__,\
+            .line_number = __LINE__,\
+            .custom_status_data = data,\
+            .custom_status_data_handler = handler\
+        }
         
 #define MAKE_SUCCESS_STRUCT(data) {.status_code=SUCCESS}
 
@@ -55,11 +64,20 @@ struct StatusData
 typedef int (*error_dumper) (FILE* fp, StatusData error_data);
 
 //------------------------------------------------------------------------
+//! @brief void fprint_error(FILE* fp, StatusData error)
+//! Function pretty prints error structure
+//! @param [in] error - structure
+//------------------------------------------------------------------------
+void fprint_error(FILE* fp, StatusData error_data);
+
+//------------------------------------------------------------------------
 //! @brief void print_error(StatusData error)
 //! Function pretty prints error structure
 //! @param [in] error - structure
 //------------------------------------------------------------------------
 void print_error(StatusData error);
+
+
 
 void print_back_trace(void);
 

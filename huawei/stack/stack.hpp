@@ -17,22 +17,22 @@
                         default: UNKNOWN_T              \
                     )
 
-#include "logger.hpp"
 #include "status.hpp"
 #include <stdlib.h>
 
 
-
-
 typedef ASMLabel STACK_ELEM_TYPE;
 
-enum StackOperationStatusCode
+
+enum StackErrorCode
 {
-    STACK_SUCCESS,
     STACK_EMPTY_POP,
-    STACK_CANNOT_ALLOCATE,
-    STACK_INVALID
+    STACK_MEMRY_CORRUPT,
+    STACK_STRUCTURE_CORRUPT,
+    STACK_INVALID_SIZE
 };
+
+
 
 enum FormatedTypes
 {
@@ -73,7 +73,8 @@ STACK_ELEM_TYPE stack_pop(Stack* st);
 
 StatusData stack_validate(Stack* st);
 
-void stack_dump(Stack* st, LogMessageType dump_message_type);
+void stack_dump(Stack* st, FILE* fp);
 
+int dump_stack_error(FILE* fp, StatusData error_data);
 
 #endif // STACK_DECLARED

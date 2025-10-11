@@ -124,6 +124,11 @@ int LOG_ERROR(StatusData error_data)
             {
                 fp = stderr;
             }
+            assert(error_data.custom_status_data_handler != NULL);
+
+            fprintf(fp, "Произошла ошибка. Файл - %s, функция - %s, строка - %d:\n", 
+                error_data.filename, error_data.func_name, error_data.line_number);
+            error_data.custom_status_data_handler(fp, error_data);
 
             if (error_data.custom_status_data_handler(fp, error_data) == -1)
                     status = -1;
@@ -136,7 +141,7 @@ int LOG_ERROR(StatusData error_data)
                 }
             }
         }
-
+        free(error_data.custom_status_data);
         return status;
     }
     
