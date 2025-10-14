@@ -10,7 +10,35 @@
 #include <stdint.h>
 
 
-SPUInstruction parse_instruction(void* instruction_ptr)
+
+static SPUInstruction parse_instruction(void* instruction_ptr);
+
+
+static void SPU_run_loop(SPU* processor);
+
+
+static int SPU_is_valid_memaddr(SPU* processor, uint32_t virtual_address);
+
+static int SPU_is_valid_mem_array(SPU* processor, uint32_t virtual_array_address, uint32_t array_size);
+
+
+static void* SPU_get_real_mem_addr(SPU* processor, uint32_t virtual_addr);
+
+static uint32_t SPU_read_memory_cell(SPU* processor, uint32_t virtual_addr);
+static void SPU_write_memory_cell(SPU* processor, uint32_t virtual_addr, uint32_t value);
+
+
+
+static void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_t count);
+
+static uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr);
+
+
+static void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr);
+
+
+
+static SPUInstruction parse_instruction(void* instruction_ptr)
 {
     unsigned char opcode = ((unsigned char*) instruction_ptr)[0];
 
@@ -33,10 +61,11 @@ SPUInstruction parse_instruction(void* instruction_ptr)
 
 
 
-void SPU_init(SPU* processor, uint32_t RAM_size)
+void SPU_init(SPU* processor, uint32_t RAM_size, int debug_mode)
 {
     processor->memory_size = RAM_size;
     processor->memory = calloc(RAM_size, 1);
+    processor->debug_mode = debug_mode;
 
     if (processor->memory == NULL)
     {
@@ -70,7 +99,7 @@ void SPU_start(SPU* processor, uint32_t entrypoint)
 }
 
 
-void SPU_run_loop(SPU* processor)
+static void SPU_run_loop(SPU* processor)
 {
     assert(processor != NULL);
     assert(processor->memory != NULL);
@@ -102,9 +131,15 @@ void SPU_run_loop(SPU* processor)
 }
 
 
-int SPU_is_valid_memaddr(SPU* processor, uint32_t virtual_address)
+static int SPU_is_valid_memaddr(SPU* processor, uint32_t virtual_address)
 {
     return virtual_address < processor->memory_size;
+}
+
+static int SPU_is_valid_mem_array(SPU* processor, uint32_t virtual_array_address, uint32_t array_size)
+{
+    return SPU_is_valid_memaddr(processor, virtual_array_address) 
+        && SPU_is_valid_memaddr(processor, virtual_array_address + array_size - 1);
 }
 
 
@@ -123,9 +158,23 @@ void SPU_dump(SPU* processor)
     printf_green("SPU {\n  memory_size = %u,\n  memory_ptr = %p,\n  is_running = %d\n}\n", processor->memory_size, processor->memory, processor->is_running);
 
     printf_yellow("=== RAM_DUMP_BEGIN ===\n\n");
-    for (uint32_t dump_ptr = 0; dump_ptr + DUMP_ROW_SIZE <= processor->memory_size; dump_ptr += DUMP_ROW_SIZE)
+
+    uint32_t used_memory_size = processor->memory_size;
+
+    char b = 0;
+
+    for (; b == 0; SPU_read_memory(processor, &b, used_memory_size - 1, 1)) used_memory_size--;
+
+    used_memory_size = (used_memory_size / DUMP_ROW_SIZE) * DUMP_ROW_SIZE;
+
+    for (uint32_t dump_ptr = 0; dump_ptr <= used_memory_size; dump_ptr += DUMP_ROW_SIZE)
     {
-        SPU_read_memory(processor, mem_dump_row, dump_ptr, DUMP_ROW_SIZE);
+        memset(mem_dump_row, 0, DUMP_ROW_SIZE);
+        if (SPU_is_valid_mem_array(processor, dump_ptr, DUMP_ROW_SIZE))
+        {
+            SPU_read_memory(processor, mem_dump_row, dump_ptr, DUMP_ROW_SIZE);
+        }
+
         to_hex(mem_dump_row_str, mem_dump_row, DUMP_ROW_SIZE);
         printf_green("ADDR: %#8x\t| %s |\n", dump_ptr, mem_dump_row_str);
     }
@@ -134,7 +183,7 @@ void SPU_dump(SPU* processor)
 
 
 
-void* SPU_get_real_mem_addr(SPU* processor, uint32_t virtual_addr)
+static void* SPU_get_real_mem_addr(SPU* processor, uint32_t virtual_addr)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -146,7 +195,7 @@ void* SPU_get_real_mem_addr(SPU* processor, uint32_t virtual_addr)
 
 }
 
-uint32_t SPU_read_memory_cell(SPU* processor, uint32_t virtual_addr)
+static uint32_t SPU_read_memory_cell(SPU* processor, uint32_t virtual_addr)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -164,7 +213,7 @@ uint32_t SPU_read_memory_cell(SPU* processor, uint32_t virtual_addr)
     return value;
 }
 
-void SPU_write_memory_cell(SPU* processor, uint32_t virtual_addr, uint32_t value)
+static void SPU_write_memory_cell(SPU* processor, uint32_t virtual_addr, uint32_t value)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -190,7 +239,7 @@ void SPU_write_memory(SPU *processor, uint32_t virtual_dst, void* real_src, size
     memcpy(real_dst, real_src, count);
 }
 
-void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_t count)
+static void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_t count)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -203,7 +252,7 @@ void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_
     memcpy(real_dst, real_src, count);
 }
 
-uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr)
+static uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr)
 {
     //uint32_t offset = SPU_read_memory_cell(processor, INSTRUCTION_POINTER_ADDR);
 
@@ -211,7 +260,7 @@ uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr)
 }
 
 
-void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr)
+static void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -516,11 +565,6 @@ void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
         SPU_write_memory(processor, abs_dst_ptr + i, &carry, 1);
         carry = carry / 256;
     }
-    
-    if (carry)
-    {
-        SPU_write_memory(processor, abs_dst_ptr + (uint32_t)count, &carry, 1);
-    }
 
     return;
 }
@@ -568,11 +612,6 @@ void SPU_execute_O_SUB(SPU* processor, SPUInstruction instr)
         
         SPU_write_memory(processor, abs_dst_ptr + i, &result, 1);
         carry = result >= 0 ? 0 : 1;
-    }
-    
-    if (carry)
-    {
-        SPU_write_memory(processor, abs_dst_ptr + (uint32_t)count, &carry, 1);
     }
 
     return;

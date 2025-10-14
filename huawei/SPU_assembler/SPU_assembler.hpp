@@ -1,8 +1,6 @@
 #ifndef SPU_ASSEMBLER_DECLARED
 #define SPU_ASSEMBLER_DECLARED
 
-#define MAX_COMMAND_STR_LEN M
-
 #define COMMENT_START_CHAR      ';'
 #define LABEL_CHAR              ':'
 #define ARG_TYPE_PTR_MODIFIER   '$'
@@ -48,5 +46,16 @@ struct AssembledLine
     char label_args_names[4][MAX_INSTRUCTION_STR_LEN];
     size_t label_args_num;
 };
+
+typedef ASMLabel STACK_ELEM_TYPE;
+
+int process_asm_file(const char* input_path, const char* output_path);
+
+AssembledLine* process_asm(PreprocessedLine* preprocessed_lines, size_t lines_num);
+
+AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int source_line_number);
+
+
+
 
 #endif // SPU_ASSEMBLER_DECLARED

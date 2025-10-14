@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 
     SPU processor = {};
 
-    SPU_init(&processor, 256);
+    SPU_init(&processor, (uint32_t) file_size + 65536, 1);
 
     SPU_write_memory(&processor, 32, bytecode, (size_t) file_size);
 

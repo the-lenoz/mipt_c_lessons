@@ -121,44 +121,23 @@ struct SPU
     uint32_t current_instruction_pointer;
     StatusData last_operation_status;
     int is_running;
+    int debug_mode;
 };
 
 
-void SPU_init(SPU* processor, uint32_t RAM_size);
+void SPU_init(SPU* processor, uint32_t RAM_size, int debug_mode = 0);
 
 void SPU_destroy(SPU* processor);
 
 
 void SPU_start(SPU* processor, uint32_t entrypoint);
 
-void SPU_run_loop(SPU* processor);
-
-
-int SPU_is_valid_memaddr(SPU* processor, uint32_t virtual_address);
-
-
 StatusData SPU_verify(SPU* processor);
 
 void SPU_dump(SPU* processor);
 
 
-
-
-
-
-void* SPU_get_real_mem_addr(SPU* processor, uint32_t virtual_addr);
-
-uint32_t SPU_read_memory_cell(SPU* processor, uint32_t virtual_addr);
-void SPU_write_memory_cell(SPU* processor, uint32_t virtual_addr, uint32_t value);
-
-
 void SPU_write_memory(SPU *processor, uint32_t virtual_dst, void* real_src, size_t count);
-void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virtual_src, size_t count);
-
-uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr);
-
-
-void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr);
 
 
 struct SPUInstruction
@@ -170,8 +149,6 @@ struct SPUInstruction
     const char* name;
 };
 
-
-SPUInstruction parse_instruction(void* instruction_ptr);
 
 
 typedef void (*instruction_executor) (SPU* processor, SPUInstruction instr);

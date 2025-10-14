@@ -54,6 +54,7 @@ enum FormatedTypes
 
 struct Stack 
 {
+    int debug_mode;
     STACK_ELEM_TYPE* data;
     size_t size;
     size_t capacity;
@@ -63,7 +64,7 @@ struct Stack
     unsigned int hash;
 };
 
-void stack_init(Stack* st);
+void stack_init(Stack* st, int debug_mode = 0);
 
 void stack_destroy(Stack* st);
 

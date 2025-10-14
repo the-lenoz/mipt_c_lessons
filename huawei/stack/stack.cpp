@@ -28,10 +28,11 @@ static unsigned int stack_calc_hash(Stack* st);
 
 static STACK_ELEM_TYPE create_canary();
 
-void stack_init(Stack* st)
+void stack_init(Stack* st, int debug_mode)
 {
     assert(st != NULL);
 
+    st->debug_mode = debug_mode;
     st->last_operation_status = MAKE_SUCCESS_STRUCT(NULL);
     st->size = 0;
     st->capacity = stack_get_enough_size(st);
