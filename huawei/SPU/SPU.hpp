@@ -31,6 +31,7 @@
 
 #define OPCODE_SIZE 1
 #define ARG_SIZE    4
+#define MAX_ARGS_NUMBER 4
 
 #define ARG_TYPE_OPCODE_MASK 0b10000000
 #define ARG_TYPE_ASIS        0b00000000
@@ -49,14 +50,11 @@
 #define O_HLT           (0b00001 | ARG_NUM_0)
 
 
-//! (INDEX: size_t) (DATA: void*) 
-#define O_OUT           (0b00000 | ARG_NUM_2)
-
 //! (DST: void*) (VAL: size_t)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST
-#define O_MOV_CONST     (0b00001 | ARG_NUM_2)
+#define O_MOV_CONST     (0b00000 | ARG_NUM_2)
 
 //! (DST: void*) (VAL: void*)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST
-#define O_LEA           (0b00010 | ARG_NUM_2)
+#define O_LEA           (0b00001 | ARG_NUM_2)
 
 
 //! (DST: void*) (SRC: void*) (COUNT: size_t*) 
@@ -83,6 +81,11 @@
 //! (FLAG: size_t*) (DST: void*) (VAL: void*)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST AND FLAG
 #define O_CLEA           (0b00111 | ARG_NUM_3)
 
+//! (INDEX: size_t) (SRC: void*) (COUNT: size_t*)
+#define O_OUT           (0b01000 | ARG_NUM_3)
+
+//! (INDEX: size_t) (DST: void*) (COUNT: size_t*)
+#define O_IN           (0b01001 | ARG_NUM_3)
 
 
 //! (DST: void*) (A: void*) (B: void*) (COUNT: size_t*) 
@@ -102,10 +105,6 @@
 
 //! (FLAG: size_t*) (A: void*) (B: void*) (COUNT: size_t*) 
 #define O_LT           (0b01001 | ARG_NUM_4)
-
-
-//!  ()
-#define O_CALL          (0b01001 | ARG_NUM_4)
 
 
 #define INSTRUCTION_POINTER_ADDR    0x0000000000000000
@@ -158,7 +157,6 @@ void SPU_execute_O_NOP(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_HLT(SPU* processor, SPUInstruction instr);
 
 
-void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_MOV_CONST(SPU* processor, SPUInstruction instr);
 
 void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr);
@@ -177,6 +175,9 @@ void SPU_execute_O_ALL(SPU* processor, SPUInstruction instr);
 void SPU_execute_O_ANY(SPU* processor, SPUInstruction instr);
 
 void SPU_execute_O_CLEA(SPU* processor, SPUInstruction instr);
+
+void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr);
+void SPU_execute_O_IN(SPU* processor, SPUInstruction instr);
 
 
 void SPU_execute_O_EQ(SPU* processor, SPUInstruction instr);
@@ -212,12 +213,6 @@ const SPUInstruction instructions[] =
     },
 
 
-    {
-        .opcode = O_OUT,
-        .args_num = 2,
-        .executor = SPU_execute_O_OUT,
-        .name = "OUT"
-    },
     {
         .opcode = O_MOV_CONST,
         .args_num = 2,
@@ -280,6 +275,18 @@ const SPUInstruction instructions[] =
         .args_num = 3,
         .executor = SPU_execute_O_CLEA,
         .name = "CLEA"
+    },
+    {
+        .opcode = O_OUT,
+        .args_num = 3,
+        .executor = SPU_execute_O_OUT,
+        .name = "OUT"
+    },
+    {
+        .opcode = O_IN,
+        .args_num = 3,
+        .executor = SPU_execute_O_IN,
+        .name = "OUT"
     },
 
 
@@ -345,32 +352,47 @@ const SPUInstruction instructions[] =
         .executor = SPU_execute_O_LT,
         .name = "LT"
     },
-
-    {
-        .opcode = O_CALL,
-        .args_num = 4,
-        .executor = SPU_execute_O_CALL,
-        .name = "CALL"
-    }
 };
 
 const size_t instructions_number = sizeof(instructions) / sizeof(instructions[0]);
 
 
 
-typedef void (*port_out_handler) (SPU* processor, uint32_t data_ptr);
+typedef void (*port_out_handler) (SPU* processor, uint32_t data_ptr, uint32_t count);
+
+typedef void (*port_in_handler) (SPU* processor, uint32_t dst_ptr, uint32_t count);
 
 
-void SPU_handle_print_DWORD_number(SPU* processor, uint32_t data_ptr);
+
+const int text_VGA_screen_width = 96;
+const int text_VGA_screen_height = 48;
+void SPU_handle_out_text_VGA(SPU* processor, uint32_t data_ptr, uint32_t count);
+
+const int VGA_screen_width = 1280;
+const int VGA_screen_height = 720;
+void SPU_handle_out_VGA(SPU* processor, uint32_t data_ptr, uint32_t count);
+
+void SPU_handle_out_port_printf(SPU* processor, uint32_t data_ptr, uint32_t count);
 
 
 const port_out_handler port_out_handlers[] = 
 {
-    SPU_handle_print_DWORD_number,
+    SPU_handle_out_text_VGA,
+    SPU_handle_out_port_printf,
+    SPU_handle_out_VGA
 };
 
 const size_t port_out_handlers_number = sizeof(port_out_handlers) / sizeof(port_out_handlers[0]);
 
+
+
+const port_in_handler port_in_handlers[] = 
+{
+    SPU_handle_out_port_printf,
+    SPU_handle_out_port_printf,
+};
+
+const size_t port_in_handlers_number = sizeof(port_in_handlers) / sizeof(port_in_handlers[0]);
 
 
 

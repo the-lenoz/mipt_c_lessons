@@ -3,15 +3,17 @@
     LT      FLAG1   n       N       4
 
 
-    MOVC    FILLC   36
-    MOVC    EMPTYC  32
+    MOVC    FILLC   0x00ffffff
+    MOVC    EMPTYC  0x00000000
 
 
-    MOVC    width   96
-    MOVC    height  48
-    MOVC    radius  10
+    MOVC    width   1280
+    MOVC    height  720
+    MOVC    radius  8
     
     MOVC    ONE     1
+    MOVC    TWO     2
+    MOVC    FOUR    4
 
     MOVC    R1      2
 
@@ -36,7 +38,7 @@ loopM:
         loopX:
             
             LEA     R1      EMPTYC
-            $MOV    current_VGA_char_ptr    R1  ONE
+            $MOV    current_VGA_char_ptr    R1  FOUR
 
 
             SUB     R1      i       centerY 4
@@ -54,11 +56,11 @@ loopM:
             LT      FLAG1   R1      R3      4
 
             LEA     R1      FILLC
-            $CMOV   F1_ptr  current_VGA_char_ptr          R1    ONE
+            $CMOV   F1_ptr  current_VGA_char_ptr          R1    FOUR
 
             ADD     j       j       ONE     4
 
-            ADD     current_VGA_char_ptr    current_VGA_char_ptr    ONE  4
+            ADD     current_VGA_char_ptr    current_VGA_char_ptr    FOUR 4
 
             LT      FLAG1   j       width   4
             $CLEA   F1_ptr  IP      loopX
@@ -96,9 +98,9 @@ change_vY:
 remain_vY:
 
     MUL     R1      width   height  4
-    LEA     R2      ZERO
+    MUL     R1      R1      FOUR    4
     LEA     R3      VGA_data
-    $OUT    R2      R3      R1
+    $OUT    TWO      R3      R1
 
     LT      FLAG1   ONE     width   4
     $CLEA   F1_ptr  IP      loopM
@@ -204,6 +206,17 @@ ONE:
     NOP
 
 ZERO:
+    NOP
+    NOP
+    NOP
+    NOP
+
+TWO:
+    NOP
+    NOP
+    NOP
+    NOP
+FOUR:
     NOP
     NOP
     NOP

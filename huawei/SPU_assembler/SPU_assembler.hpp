@@ -43,7 +43,7 @@ struct AssembledLine
     int src_line_number;
     uint32_t bytecode_offset;
 
-    char label_args_names[4][MAX_INSTRUCTION_STR_LEN];
+    char label_args_names[MAX_ARGS_NUMBER][MAX_INSTRUCTION_STR_LEN];
     size_t label_args_num;
 };
 

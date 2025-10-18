@@ -6,6 +6,7 @@
 #include "terminal_decorator.hpp"
 #include <cctype>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 
 
@@ -74,17 +75,23 @@ int process_asm_file(const char* input_path, const char* output_path)
     stack_destroy(&preprocessed_labels);
 
 
-    fix_up_asm(&asm_labels, lines_num, bytecode_lines);
+    if (fix_up_asm(&asm_labels, lines_num, bytecode_lines) != 0)
+    {
+        free(bytecode_lines);
+        return -1;
+    }
 
 
 
     status = write_bytecode_lines(lines_num, bytecode_lines, output_path);
     if (status.status_code != SUCCESS)
     {
+        free(bytecode_lines);
         fprint_error(stderr, status);
         return -1;
     }
 
+    free(bytecode_lines);
     printf_green("Assembled successfully\n");
 
     return 0;
@@ -132,17 +139,14 @@ PreprocessedLine* preprocess_asm(my_string* source_lines_buffer, size_t* lines_n
             printf_yellow("Found label '%s'\n", label.name);
         }
 
-        if (!is_empty_mystr(source_lines_buffer[i]) || 1)
+        while (source_lines_buffer[i].len && isspace(source_lines_buffer[i].str[0])) // LStrip line
         {
-            while (source_lines_buffer[i].len && isspace(source_lines_buffer[i].str[0])) // LStrip line
-            {
-                source_lines_buffer[i].str++;
-                source_lines_buffer[i].len--;
-            }
-
-            preprocessed_lines_buffer[n].line = source_lines_buffer[i];
-            preprocessed_lines_buffer[n++].line_number = (int) i;
+            source_lines_buffer[i].str++;
+            source_lines_buffer[i].len--;
         }
+
+        preprocessed_lines_buffer[n].line = source_lines_buffer[i];
+        preprocessed_lines_buffer[n++].line_number = (int) i;
     }
     *lines_num = n;
 
@@ -200,7 +204,7 @@ AssembledLine* process_asm(PreprocessedLine* preprocessed_lines, size_t lines_nu
 
 AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int source_line_number)
 {
-    uint32_t args[4] = {};
+    uint32_t args[MAX_ARGS_NUMBER] = {};
     unsigned char arg_type = ARG_TYPE_ASIS;
 
     char operand_str[MAX_INSTRUCTION_STR_LEN + 1] = {};
@@ -281,44 +285,7 @@ AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int s
         memset(operand_str, 0, MAX_INSTRUCTION_STR_LEN + 1);
         read_chars = 0;
         if (sscanf(source_line.str, "%*[ \t]%n%" STR(MAX_INSTRUCTION_STR_LEN) "[0-9a-zA-Z_-]%n", 
-            &read_chars, operand_str, &read_chars) == 1)
-        {
-            if (isdigit(operand_str[0]) || operand_str[0] == '-')
-            {
-                if (mc_startswith(operand_str, "0x"))
-                {
-                    format = "%x";
-                    memmove(operand_str, operand_str + 2, MAX_INSTRUCTION_STR_LEN - 2);
-                }
-                else 
-                {
-                    format = "%d";
-                }
-
-                if (sscanf(operand_str, format, &(args[i])) != 1)
-                {
-                    last_line_error.line = source_line_number;
-                    last_line_error.column = (int) (source_line.str - line_start);
-                    last_line_error.description = "Missing argument";
-                    
-                    result.bytecode_size = 0;
-                    return result; 
-                }
-                printf_yellow("ARG%zu:%d,\t", i, args[i]);
-            }
-            
-            else // LABEL
-            {
-                args[i] = 0;
-                result.label_args_num++;
-                strcpy(result.label_args_names[i], operand_str);
-
-                printf_yellow("ARG%zu:LABEL(%s),\t", i, operand_str);
-            }        
-            source_line.str += read_chars;
-            source_line.len -= (unsigned)read_chars;    
-        }
-        else 
+            &read_chars, operand_str, &read_chars) != 1)
         {
             source_line.str += read_chars;
             source_line.len -= (unsigned)read_chars;   
@@ -330,6 +297,41 @@ AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int s
             result.bytecode_size = 0;
             return result; 
         }
+
+        if (isdigit(operand_str[0]) || operand_str[0] == '-')
+        {
+            if (mc_startswith(operand_str, "0x"))
+            {
+                format = "%x";
+                memmove(operand_str, operand_str + 2, MAX_INSTRUCTION_STR_LEN - 2);
+            }
+            else 
+            {
+                format = "%d";
+            }
+            
+            if (sscanf(operand_str, format, &(args[i])) != 1)
+            {
+                last_line_error.line = source_line_number;
+                last_line_error.column = (int) (source_line.str - line_start);
+                last_line_error.description = "Missing argument";
+                
+                result.bytecode_size = 0;
+                return result; 
+            }
+            printf_yellow("ARG%zu:%d,\t", i, args[i]);
+        }
+        
+        else // LABEL
+        {
+            args[i] = 0;
+            result.label_args_num++;
+            strcpy(result.label_args_names[i], operand_str);
+
+            printf_yellow("ARG%zu:LABEL(%s),\t", i, operand_str);
+        }        
+        source_line.str += read_chars;
+        source_line.len -= (unsigned)read_chars;    
     }
 
     memcpy(result.bytecode + current_inline_bytecode_offset, args, instruction.args_num * ARG_SIZE);
@@ -349,24 +351,30 @@ int fix_up_asm(Stack* asm_labels, size_t lines_num, AssembledLine* bytecode_line
         label = stack_pop(asm_labels);
         for (size_t i = 0; i < lines_num; ++i)
         {
-            for (size_t j = 0; j < 4; ++j)
+            for (size_t j = 0; j < MAX_ARGS_NUMBER; ++j)
             {
+
                 if (*(bytecode_lines[i].label_args_names[j]) == 0)
                 {
                     continue;
                 }
-                
-                if (strcmp(bytecode_lines[i].label_args_names[j], label.name) == 0)
+
+
+                if (strcmp(bytecode_lines[i].label_args_names[j], label.name) != 0)
                 {
-                    relative_address = (int32_t) label.bytecode_offset -  (int32_t) bytecode_lines[i].bytecode_offset;
-                    printf_yellow("Writing label data LINE: %zu, arg[%zu] <- (%u - %u) = %d\n", i + 1, j, 
-                        label.bytecode_offset, bytecode_lines[i].bytecode_offset, relative_address);
-                    memcpy(bytecode_lines[i].bytecode + OPCODE_SIZE + j * ARG_SIZE, &relative_address, sizeof(relative_address));
+                    continue;
                 }
+
+                relative_address = (int32_t) label.bytecode_offset -  (int32_t) bytecode_lines[i].bytecode_offset;
+                memcpy(bytecode_lines[i].bytecode + OPCODE_SIZE + j * ARG_SIZE, &relative_address, sizeof(relative_address));
+
+                printf_yellow("Written label data LINE: %zu, arg[%zu] <- (%u - %u) = %d\n", i + 1, j, 
+                    label.bytecode_offset, bytecode_lines[i].bytecode_offset, relative_address);
             }
         }
     }
     stack_destroy(asm_labels);
+
     return 0;
 }
 
@@ -387,11 +395,7 @@ StatusData write_bytecode_lines(size_t lines_num, AssembledLine* bytecode_lines,
     {
         memcpy(bytecode_buffer + bytecode_len, bytecode_lines[i].bytecode, bytecode_lines[i].bytecode_size);
         bytecode_len += bytecode_lines[i].bytecode_size;
-    }
-
-
-    free(bytecode_lines);
-    
+    }    
 
     FILE* output_file_ptr = fopen(output_path, "w");
 
