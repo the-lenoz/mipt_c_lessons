@@ -65,16 +65,11 @@
 //! DST MAY BE SRC.
 #define O_INV           (0b00001 | ARG_NUM_3)
 
-//! (DST: void*) (SRC: void*) (COUNT: size_t*) 
-//! DST MAY BE SRC.
 #define O_NEG           (0b00010 | ARG_NUM_3)
 
-//! (DST: void*) (SRC: void*) (COUNT: size_t*) 
-//! DST MAY BE SRC.
 #define O_INC           (0b00011 | ARG_NUM_3)
 #define O_DEC           (0b00100 | ARG_NUM_3)
 
-//! (DST: size_t*) (SRC: void*) (COUNT: size_t*)
 #define O_ALL           (0b00101 | ARG_NUM_3)
 #define O_ANY           (0b00110 | ARG_NUM_3)
 
@@ -144,7 +139,6 @@ struct SPUInstruction
     unsigned char opcode;
     void* args_ptr;
     uint32_t args_num;
-    void (*executor) (SPU* processor, SPUInstruction instr);
     const char* name;
 };
 
@@ -194,167 +188,666 @@ void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr);
 
 void SPU_execute_O_LT(SPU* processor, SPUInstruction instr);
 
-void SPU_execute_O_CALL(SPU* processor, SPUInstruction instr);
 
 
-const SPUInstruction instructions[] = 
-{
-    {
-        .opcode = O_NOP,
-        .args_num = 0,
-        .executor = SPU_execute_O_NOP,
-        .name = "NOP"
-    },
-    {
-        .opcode = O_HLT,
-        .args_num = 0,
-        .executor = SPU_execute_O_HLT,
-        .name = "HLT"
-    },
+#define EXPAND_INSTRUCTIONS() /* 
+! NO ARGS
+*/ INSTRUCTION(                                     \
+    "NOP",                                          \
+    (0b00000 | ARG_NUM_0),                          \
+    0,                                              \
+    {                                               \
+        /*DO NOTHING*/                              \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "HLT",                                          \
+    (0b00001 | ARG_NUM_0),                          \
+    0,                                              \
+    {                                               \
+        processor->is_running = 0;                  \
+    }                                               \
+)                                                   /*
+! (DST: void*) (VAL: size_t)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST
+*/INSTRUCTION(                                      \
+    "MOVC",                                         \
+    (0b00000 | ARG_NUM_2),                          \
+    2,                                              \
+    {                                               \
+        int32_t relative_destination_ptr = (int32_t) args[0];                                           \
+        uint32_t value = args[1];                                                                       \
+                                                                                                        \
+        uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);            \
+                                                                                                        \
+                                                                                                        \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                            \
+        {                                                                                               \
+            abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);                 \
+        }                                                                                               \
+                                                                                                        \
+        SPU_write_memory_cell(processor, abs_destination_ptr, value);                                   \
+    }                                               \
+)                                                   /*
+! (DST: void*) (VAL: void*)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST
+*/ INSTRUCTION(                                     \
+    "LEA",                                          \
+    (0b00001 | ARG_NUM_2),                          \
+    2,                                              \
+    {                                               \
+        int32_t relative_destination_ptr = (int32_t)args[0];                                             \
+        int32_t local_ptr_value = (int32_t)args[1];                                                      \
+                                                                                                \
+        uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);    \
+                                                                                                \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                    \
+        {                                                                                       \
+            abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);         \
+        }                                                                                       \
+                                                                                                \
+        uint32_t abs_ptr_value = SPU_get_abs_ptr(processor, local_ptr_value);                   \
+                                                                                                \
+        SPU_write_memory_cell(processor, abs_destination_ptr, abs_ptr_value);                   \
+    }                                                                                           \
+)                                                   /*
 
 
-    {
-        .opcode = O_MOV_CONST,
-        .args_num = 2,
-        .executor = SPU_execute_O_MOV_CONST,
-        .name = "MOVC"
-    },
+! (DST: void*) (SRC: void*) (COUNT: size_t*) 
+! DST MAY INTERSECT WITH SRC
+*/ INSTRUCTION(                                     \
+    "MOV",                                          \
+    (0b00000 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        int32_t relative_dst_ptr = (int32_t)args[0];                                                     \
+        int32_t relative_src_ptr = (int32_t)args[1];                                                     \
+        int32_t count = (int32_t)args[2];                                                                \
+                                                                                                \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                    \
+        uint32_t abs_src_ptr = SPU_get_abs_ptr(processor, relative_src_ptr);                    \
+                                                                                                \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                              \
+        {                                                                                       \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                         \
+            abs_src_ptr = SPU_read_memory_cell(processor, abs_src_ptr);                         \
+            count = (int32_t)SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));\
+        }                                                                                       \
+                                                                                                \
+        void* real_dst_ptr = SPU_get_real_mem_addr(processor, abs_dst_ptr);                     \
+        void* real_src_ptr = SPU_get_real_mem_addr(processor, abs_src_ptr);                     \
+                                                                                                \
+        memmove(real_dst_ptr, real_src_ptr, (uint32_t) count);                                  \
+    }                                               \
+)                                                   /* 
+! (DST: void*) (SRC: void*) (COUNT: size_t*) 
+! DST MAY BE SRC.
+*/ INSTRUCTION(                                     \
+    "INV",                                          \
+    (0b00001 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "NEG",                                          \
+    (0b00010 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   /*
 
-    {
-        .opcode = O_LEA,
-        .args_num = 2,
-        .executor = SPU_execute_O_LEA,
-        .name = "LEA"
-    },
-
-    {
-        .opcode = O_MOV,
-        .args_num = 3,
-        .executor = SPU_execute_O_MOV,
-        .name = "MOV"
-    },
-    {
-        .opcode = O_INV,
-        .args_num = 3,
-        .executor = SPU_execute_O_INV,
-        .name = "INV"
-    },
-    {
-        .opcode = O_NEG,
-        .args_num = 3,
-        .executor = SPU_execute_O_NEG,
-        .name = "NEG"
-    },
-    {
-        .opcode = O_INC,
-        .args_num = 3,
-        .executor = SPU_execute_O_INC,
-        .name = "INC"
-    },
-    {
-        .opcode = O_DEC,
-        .args_num = 3,
-        .executor = SPU_execute_O_DEC,
-        .name = "DEC"
-    },
-    {
-        .opcode = O_ALL,
-        .args_num = 3,
-        .executor = SPU_execute_O_ALL,
-        .name = "ALL"
-    },
-    {
-        .opcode = O_ANY,
-        .args_num = 3,
-        .executor = SPU_execute_O_ANY,
-        .name = "ANY"
-    },
-
-    {
-        .opcode = O_CLEA,
-        .args_num = 3,
-        .executor = SPU_execute_O_CLEA,
-        .name = "CLEA"
-    },
-    {
-        .opcode = O_OUT,
-        .args_num = 3,
-        .executor = SPU_execute_O_OUT,
-        .name = "OUT"
-    },
-    {
-        .opcode = O_IN,
-        .args_num = 3,
-        .executor = SPU_execute_O_IN,
-        .name = "OUT"
-    },
+*/ INSTRUCTION(                                     \
+    "INC",                                          \
+    (0b00011 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "DEC",                                          \
+    (0b00100 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   /*
 
 
-    {
-        .opcode = O_EQ,
-        .args_num = 4,
-        .executor = SPU_execute_O_EQ,
-        .name = "EQ"
-    },
-    {
-        .opcode = O_AND,
-        .args_num = 4,
-        .executor = SPU_execute_O_AND,
-        .name = "AND"
-    },
-    {
-        .opcode = O_OR,
-        .args_num = 4,
-        .executor = SPU_execute_O_OR,
-        .name = "OR"
-    },
-    {
-        .opcode = O_XOR,
-        .args_num = 4,
-        .executor = SPU_execute_O_XOR,
-        .name = "XOR"
-    },
+*/ INSTRUCTION(                                     \
+    "ALL",                                          \
+    (0b00101 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "ANY",                                          \
+    (0b00110 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   /*
 
-    {
-        .opcode = O_ADD,
-        .args_num = 4,
-        .executor = SPU_execute_O_ADD,
-        .name = "ADD"
-    },
-    {
-        .opcode = O_SUB,
-        .args_num = 4,
-        .executor = SPU_execute_O_SUB,
-        .name = "SUB"
-    },
-    {
-        .opcode = O_MUL,
-        .args_num = 4,
-        .executor = SPU_execute_O_MUL,
-        .name = "MUL"
-    },
-    {
-        .opcode = O_DIV,
-        .args_num = 4,
-        .executor = SPU_execute_O_DIV,
-        .name = "DIV"
-    },
+! (FLAG: size_t*) (DST: void*) (VAL: void*)      IMPORTANT: ARG_TYPE_PTR_MODIFIER AFFECTS ONLY DST AND FLAG
+*/ INSTRUCTION(                                     \
+    "CLEA",                                         \
+    (0b00111 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        int32_t flag_ptr = (int32_t)args[0];                                                             \
+        int32_t relative_destination_ptr = (int32_t)args[1];                                             \
+        int32_t local_ptr_value = (int32_t)args[2];                                                      \
+                                                                                                \
+        uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);    \
+        uint32_t flag = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, flag_ptr));  \
+                                                                                                \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                    \
+        {                                                                                       \
+            flag = SPU_read_memory_cell(processor, flag);                                       \
+            abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);         \
+        }                                                                                       \
+        if (flag)                                                                               \
+        {                                                                                       \
+            uint32_t abs_ptr_value = SPU_get_abs_ptr(processor, local_ptr_value);               \
+            SPU_write_memory_cell(processor, abs_destination_ptr, abs_ptr_value);               \
+        }                                                                                       \
+    }                                              \
+)                                                  /*
 
-    {
-        .opcode = O_CMOV,
-        .args_num = 4,
-        .executor = SPU_execute_O_CMOV,
-        .name = "CMOV"
-    },
-    {
-        .opcode = O_LT,
-        .args_num = 4,
-        .executor = SPU_execute_O_LT,
-        .name = "LT"
-    },
+! (INDEX: size_t) (SRC: void*) (COUNT: size_t*)
+*/ INSTRUCTION(                                     \
+    "OUT",                                          \
+    (0b01000 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        int32_t port_number = (int32_t)args[0];                                                                          \
+        int32_t relative_data_ptr = (int32_t)args[1];                                                                    \
+        int32_t count = (int32_t)args[2];                                                                                \
+                                                                                                                \
+        uint32_t abs_data_ptr = SPU_get_abs_ptr(processor, relative_data_ptr);                                  \
+                                                                                                                \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                    \
+        {                                                                                                       \
+            port_number = (int32_t)SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, port_number));    \
+            abs_data_ptr = SPU_read_memory_cell(processor, abs_data_ptr);                                       \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));               \
+        }                                                                                                       \
+                                                                                                                \
+        if ((uint32_t)port_number >= port_out_handlers_number || port_out_handlers[port_number] == NULL)        \
+        {                                                                                                       \
+            return; /* UNKNOWN PORT */                                                                          \
+        }                                                                                                       \
+                                                                                                                \
+        port_out_handlers[port_number](processor, abs_data_ptr, (uint32_t)count);                               \
+    }                                               \
+)                                                   /*
+
+! (INDEX: size_t) (DST: void*) (COUNT: size_t*)
+*/ INSTRUCTION(                                     \
+    "IN",                                           \
+    (0b01001 | ARG_NUM_3),                          \
+    3,                                              \
+    {                                               \
+        int32_t port_number = (int32_t)args[0];                                                                          \
+        int32_t relative_data_ptr = (int32_t)args[1];                                                                    \
+        int32_t count = (int32_t)args[2];                                                                                \
+                                                                                                                \
+        uint32_t abs_data_ptr = SPU_get_abs_ptr(processor, relative_data_ptr);                                  \
+                                                                                                                \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                    \
+        {                                                                                                       \
+            port_number = (int32_t)SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, port_number));    \
+            abs_data_ptr = SPU_read_memory_cell(processor, abs_data_ptr);                                       \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));               \
+        }                                                                                                       \
+                                                                                                                \
+        if ((uint32_t)port_number >= port_in_handlers_number || port_in_handlers[port_number] == NULL)          \
+        {                                                                                                       \
+            return; /* UNKNOWN PORT */                                                                          \
+        }                                                                                                       \
+                                                                                                                \
+        port_in_handlers[port_number](processor, abs_data_ptr, (uint32_t)count);                                \
+    }                                               \
+)                                                   /*
+
+! (DST: void*) (A: void*) (B: void*) (COUNT: size_t*) 
+*/ INSTRUCTION(                                     \
+    "EQ",                                           \
+    (0b00000 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "OR",                                           \
+    (0b00001 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "AND",                                          \
+    (0b00010 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "XOR",                                          \
+    (0b00011 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        /*NOT IMPLEMENTED*/                         \
+    }                                               \
+)                                                   /*
+
+*/ INSTRUCTION(                                     \
+    "ADD",                                          \
+    (0b00100 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t relative_dst_ptr = (int32_t)args[0];                                                                                                        \
+        int32_t relative_A_ptr = (int32_t)args[1];                                                                                                        \
+        int32_t relative_B_ptr = (int32_t)args[2];                                                                                                        \
+        int32_t count = (int32_t)args[3];                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                                                                                                        \
+        uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);                                                                                                        \
+        uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                                                                        \
+        {                                                                                                        \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                                                                                                        \
+            abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);                                                                                                        \
+            abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);                                                                                                        \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));                                                                                                        \
+        }                                                                                                        \
+                                                                                                        \
+        if (SPU_is_valid_mem_array(processor, abs_A_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))                                                                                                        \
+        {                                                                                                        \
+            int8_t a_byte = 0; int8_t b_byte = 0; int8_t c_byte = 0;                                                                                                        \
+            int16_t a_word = 0; int16_t b_word = 0; int16_t c_word = 0;                                                                                                        \
+            int32_t a_dword = 0; int32_t b_dword = 0; int32_t c_dword = 0;                                                                                                        \
+            int64_t a_qword = 0; int64_t b_qword = 0; int64_t c_qword = 0;                                                                                                        \
+            switch (count) {                                                                                                        \
+                case sizeof(int8_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));                                                                                                        \
+                    SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));                                                                                                        \
+                                                                                                        \
+                    c_byte = a_byte + b_byte;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int16_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));                                                                                                        \
+                    SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));                                                                                                        \
+                                                                                                        \
+                    c_word = a_word + b_word;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int32_t):                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));                                                                                                                                                                                                                \
+                                                                                                        \
+                    c_dword = a_dword + b_dword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int64_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));                                                                                                        \
+                    SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));                                                                                                        \
+                                                                                                        \
+                    c_qword = a_qword + b_qword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));                                                                                                        \
+                    break;                                                                                                        \
+                default:                                                                                                        \
+                    long_add(                                                                                                        \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);                                                                                                        \
+                    break;                                                                                                        \
+            }                                                                                                        \
+        }                                                                                                        \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "SUB",                                          \
+    (0b00101 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t relative_dst_ptr = (int32_t)args[0];                                                                                                        \
+        int32_t relative_A_ptr = (int32_t)args[1];                                                                                                        \
+        int32_t relative_B_ptr = (int32_t)args[2];                                                                                                        \
+        int32_t count = (int32_t)args[3];                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                                                                                                        \
+        uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);                                                                                                        \
+        uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                                                                        \
+        {                                                                                                        \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                                                                                                        \
+            abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);                                                                                                        \
+            abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);                                                                                                        \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));                                                                                                        \
+        }                                                                                                        \
+                                                                                                        \
+        if (SPU_is_valid_mem_array(processor, abs_A_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))                                                                                                        \
+        {                                                                                                        \
+            int8_t a_byte = 0; int8_t b_byte = 0; int8_t c_byte = 0;                                                                                                        \
+            int16_t a_word = 0; int16_t b_word = 0; int16_t c_word = 0;                                                                                                        \
+            int32_t a_dword = 0; int32_t b_dword = 0; int32_t c_dword = 0;                                                                                                        \
+            int64_t a_qword = 0; int64_t b_qword = 0; int64_t c_qword = 0;                                                                                                        \
+            switch (count) {                                                                                                        \
+                case sizeof(int8_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));                                                                                                        \
+                    SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));                                                                                                        \
+                                                                                                        \
+                    c_byte = a_byte - b_byte;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int16_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));                                                                                                        \
+                    SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));                                                                                                        \
+                                                                                                        \
+                    c_word = a_word - b_word;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int32_t):                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));                                                                                                                                                                                                                \
+                                                                                                        \
+                    c_dword = a_dword - b_dword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int64_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));                                                                                                        \
+                    SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));                                                                                                        \
+                                                                                                        \
+                    c_qword = a_qword - b_qword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));                                                                                                        \
+                    break;                                                                                                        \
+                default:                                                                                                        \
+                    long_sub(                                                                                                        \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);                                                                                                        \
+                    break;                                                                                                        \
+            }                                                                                                        \
+        }                                                                                                        \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "MUL",                                          \
+    (0b00110 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t relative_dst_ptr = (int32_t)args[0];                                                                                                        \
+        int32_t relative_A_ptr = (int32_t)args[1];                                                                                                        \
+        int32_t relative_B_ptr = (int32_t)args[2];                                                                                                        \
+        int32_t count = (int32_t)args[3];                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                                                                                                        \
+        uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);                                                                                                        \
+        uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                                                                        \
+        {                                                                                                        \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                                                                                                        \
+            abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);                                                                                                        \
+            abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);                                                                                                        \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));                                                                                                        \
+        }                                                                                                        \
+                                                                                                        \
+        if (SPU_is_valid_mem_array(processor, abs_A_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))                                                                                                        \
+        {                                                                                                        \
+            int8_t a_byte = 0; int8_t b_byte = 0; int8_t c_byte = 0;                                                                                                        \
+            int16_t a_word = 0; int16_t b_word = 0; int16_t c_word = 0;                                                                                                        \
+            int32_t a_dword = 0; int32_t b_dword = 0; int32_t c_dword = 0;                                                                                                        \
+            int64_t a_qword = 0; int64_t b_qword = 0; int64_t c_qword = 0;                                                                                                        \
+            switch (count) {                                                                                                        \
+                case sizeof(int8_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));                                                                                                        \
+                    SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));                                                                                                        \
+                                                                                                        \
+                    c_byte = a_byte * b_byte;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int16_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));                                                                                                        \
+                    SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));                                                                                                        \
+                                                                                                        \
+                    c_word = a_word * b_word;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int32_t):                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));                                                                                                                                                                                                                \
+                                                                                                        \
+                    c_dword = a_dword * b_dword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int64_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));                                                                                                        \
+                    SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));                                                                                                        \
+                                                                                                        \
+                    c_qword = a_qword * b_qword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));                                                                                                        \
+                    break;                                                                                                        \
+                default:                                                                                                        \
+                    long_mul(                                                                                                        \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);                                                                                                        \
+                    break;                                                                                                        \
+            }                                                                                                        \
+        }                                                                                                        \
+    }                                               \
+)                                                   \
+INSTRUCTION(                                        \
+    "DIV",                                          \
+    (0b00111 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t relative_dst_ptr = (int32_t)args[0];                                                                                                        \
+        int32_t relative_A_ptr = (int32_t)args[1];                                                                                                        \
+        int32_t relative_B_ptr = (int32_t)args[2];                                                                                                        \
+        int32_t count = (int32_t)args[3];                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                                                                                                        \
+        uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);                                                                                                        \
+        uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);                                                                                                        \
+                                                                                                        \
+                                                                                                        \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                                                                                        \
+        {                                                                                                        \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                                                                                                        \
+            abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);                                                                                                        \
+            abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);                                                                                                        \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));                                                                                                        \
+        }                                                                                                        \
+                                                                                                        \
+        if (SPU_is_valid_mem_array(processor, abs_A_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&                                                                                                        \
+            SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))                                                                                                        \
+        {                                                                                                        \
+            int8_t a_byte = 0; int8_t b_byte = 0; int8_t c_byte = 0;                                                                                                        \
+            int16_t a_word = 0; int16_t b_word = 0; int16_t c_word = 0;                                                                                                        \
+            int32_t a_dword = 0; int32_t b_dword = 0; int32_t c_dword = 0;                                                                                                        \
+            int64_t a_qword = 0; int64_t b_qword = 0; int64_t c_qword = 0;                                                                                                        \
+            switch (count) {                                                                                                        \
+                case sizeof(int8_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));                                                                                                        \
+                    SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));                                                                                                        \
+                                                                                                        \
+                    c_byte = a_byte / b_byte;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int16_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));                                                                                                        \
+                    SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));                                                                                                        \
+                                                                                                        \
+                    c_word = a_word / b_word;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int32_t):                                                                                                                                                                                                                \
+                    SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));                                                                                                        \
+                    SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));                                                                                                                                                                                                                \
+                                                                                                        \
+                    c_dword = a_dword / b_dword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));                                                                                                        \
+                    break;                                                                                                        \
+                case sizeof(int64_t):                                                                                                        \
+                    SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));                                                                                                        \
+                    SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));                                                                                                        \
+                                                                                                        \
+                    c_qword = a_qword / b_qword;                                                                                                        \
+                                                                                                        \
+                    SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));                                                                                                        \
+                    break;                                                                                                        \
+                default:                                                                                                        \
+                    long_div(                                                                                                        \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr),                                                                                                         \
+                            (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);                                                                                                        \
+                    break;                                                                                                        \
+            }                                                                                                        \
+        }                                                                                                        \
+    }                                               \
+)                                                   /*
+
+! (FLAG: size_t*) (DST: void*) (SRC: void*) (COUNT: size_t*) 
+*/ INSTRUCTION(                                     \
+    "CMOV",                                         \
+    (0b01000 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t flag_ptr = (int32_t)args[0];                                                                 \
+        int32_t relative_dst_ptr = (int32_t)args[1];                                                         \
+        int32_t relative_src_ptr = (int32_t)args[2];                                                         \
+        int32_t count = (int32_t)args[3];                                                                    \
+                                                                                                    \
+        uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);                        \
+        uint32_t abs_src_ptr = SPU_get_abs_ptr(processor, relative_src_ptr);                        \
+        uint32_t flag = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, flag_ptr));      \
+                                                                                                    \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                        \
+        {                                                                                           \
+            flag = SPU_read_memory_cell(processor, flag);                                           \
+            abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);                             \
+            abs_src_ptr = SPU_read_memory_cell(processor, abs_src_ptr);                             \
+            count = (int32_t) SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, count));   \
+        }                                                                                           \
+                                                                                                    \
+        void* real_dst_ptr = SPU_get_real_mem_addr(processor, abs_dst_ptr);                         \
+        void* real_src_ptr = SPU_get_real_mem_addr(processor, abs_src_ptr);                         \
+                                                                                                    \
+        if (flag)                                                                                   \
+        {                                                                                           \
+            memmove(real_dst_ptr, real_src_ptr, (uint32_t) count);                                  \
+        }                                                                                           \
+    }                                               \
+)                                                   /*
+
+! (FLAG: size_t*) (A: void*) (B: void*) (COUNT: size_t*) 
+*/ INSTRUCTION(                                     \
+    "LT",                                           \
+    (0b01001 | ARG_NUM_4),                          \
+    4,                                              \
+    {                                               \
+        int32_t relative_flag_ptr = (int32_t)args[0];                                                        \
+        int32_t relative_A_ptr = (int32_t)args[1];                                                           \
+        int32_t relative_B_ptr = (int32_t)args[2];                                                           \
+        uint32_t count = (uint32_t) args[3];                                                        \
+                                                                                                    \
+        uint32_t abs_flag_ptr = SPU_get_abs_ptr(processor, relative_flag_ptr);                      \
+        uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);                            \
+        uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);                            \
+                                                                                                    \
+        if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)                                  \
+        {                                                                                           \
+            abs_flag_ptr = SPU_read_memory_cell(processor, abs_flag_ptr);                           \
+            abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);                                 \
+            abs_B_ptr = SPU_read_memory_cell(processor, abs_B_ptr);                                 \
+            count = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, (int32_t)count));    \
+        }                                                                                           \
+                                                                                                    \
+        uint8_t a = 0;                                                                              \
+        uint8_t b = 0;                                                                              \
+        uint8_t Ba = 0;                                                                             \
+        uint8_t Bb = 0;                                                                             \
+                                                                                                    \
+        for (uint32_t i = 0; i < (uint32_t)count; ++i)                                              \
+        {                                                                                           \
+            SPU_read_memory(processor, &a, abs_A_ptr + count - 1 - i, 1);                           \
+            SPU_read_memory(processor, &b, abs_B_ptr + count - 1 - i, 1);                           \
+                                                                                                    \
+            if (i == 0)                                                                             \
+            {                                                                                       \
+                Ba = (a & 0b10000000) >> 7;                                                         \
+                Bb = (b & 0b10000000) >> 7;                                                         \
+            }                                                                                       \
+                                                                                                    \
+            if (a < b)                                                                              \
+            {                                                                                       \
+                SPU_write_memory_cell(processor, abs_flag_ptr, Ba == Bb);                           \
+                break;                                                                              \
+            }                                                                                       \
+            else if (a > b)                                                                         \
+            {                                                                                       \
+                SPU_write_memory_cell(processor, abs_flag_ptr, Ba != Bb);                           \
+                break;                                                                              \
+            }                                                                                       \
+        }                                                                                           \
+                                                                                                    \
+        SPU_write_memory_cell(processor, abs_flag_ptr, 0);                                          \
+    }                                               \
+)
+
+
+
+#define INSTRUCTION(instr_name, instr_opcode, args_number, executor) {.opcode=instr_opcode, .args_num=args_number, .name=instr_name},
+const SPUInstruction instructions[] = {
+    EXPAND_INSTRUCTIONS()
 };
+#undef INSTRUCTION
 
 const size_t instructions_number = sizeof(instructions) / sizeof(instructions[0]);
+
+
 
 
 
@@ -368,8 +861,12 @@ const int text_VGA_screen_width = 96;
 const int text_VGA_screen_height = 48;
 void SPU_handle_out_text_VGA(SPU* processor, uint32_t data_ptr, uint32_t count);
 
-const int VGA_screen_width = 1280;
-const int VGA_screen_height = 720;
+const int VGA_screen_true_width = 256;
+const int VGA_screen_true_height = 144;
+
+const int VGA_screen_view_width = 1280;
+const int VGA_screen_view_height = 720;
+
 void SPU_handle_out_VGA(SPU* processor, uint32_t data_ptr, uint32_t count);
 
 void SPU_handle_out_port_printf(SPU* processor, uint32_t data_ptr, uint32_t count);
