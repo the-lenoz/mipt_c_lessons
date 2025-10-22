@@ -11,7 +11,7 @@ MAIN_EXECUTABLE=disassembler
 all: $(MAIN_EXECUTABLE)
 
 $(MAIN_EXECUTABLE): $(OBJECTS) $(EXTERNAL_OBJECTS)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(shell pkg-config --cflags --libs $(LIBS)) $^ -o $@
 
 $(OBJECTS): $(SOURCES)
 	$(CC) $(CFLAGS) $(INCLUDE_PARAMS) $< -c -o $@

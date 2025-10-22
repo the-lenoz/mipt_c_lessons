@@ -4,10 +4,12 @@
 #include "AVXXX_N.hpp"
 #include "status.hpp"
 #include "terminal_decorator.hpp"
+#include <SDL2/SDL_audio.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_surface.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <stdint.h>
@@ -18,6 +20,13 @@
 
 static SDL_Window* VGA_window = NULL;
 
+
+#define FREQUENCY 44100
+#define CHANNELS 1 
+#define SAMPLE_FORMAT AUDIO_S32SYS
+#define SAMPLE_COUNT 256
+
+static SDL_AudioDeviceID audio_port_device_id = 0;
 
 static inline SPUInstruction parse_instruction(void* instruction_ptr);
 
@@ -42,7 +51,7 @@ static inline void SPU_read_memory(SPU *processor, void* real_dst, uint32_t virt
 static inline uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_ptr);
 
 
-static inline void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr);
+static void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr);
 
 
 
@@ -271,7 +280,7 @@ static inline uint32_t SPU_get_abs_ptr(SPU* processor, int32_t virtual_relative_
 }
 
 
-static inline void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr)
+static void SPU_execute_instruction(SPU* processor, uint32_t virtual_instruction_ptr)
 {
     assert(processor != NULL);
     assert(processor->memory_size != 0);
@@ -312,68 +321,7 @@ static inline void SPU_execute_instruction(SPU* processor, uint32_t virtual_inst
 
     #define INSTRUCTION(instr_name, instr_opcode, args_number, executor) case instr_opcode: executor break;
     switch (opcode & (uint8_t)~(uint8_t)ARG_TYPE_OPCODE_MASK) {
-    case (0b00000 | 0b00000000): {
-        SPU_execute_O_NOP(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00001 | 0b00000000): {
-      processor->is_running = 0;
-    } break;
-    case (0b00000 | 0b00100000): {
-        SPU_execute_O_MOV_CONST(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00001 | 0b00100000): {
-        SPU_execute_O_LEA(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00000 | 0b01000000): {
-        SPU_execute_O_MOV(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00001 | 0b01000000): {
-    } break;
-    case (0b00010 | 0b01000000): {
-    } break;
-    case (0b00011 | 0b01000000): {
-    } break;
-    case (0b00100 | 0b01000000): {
-    } break;
-    case (0b00101 | 0b01000000): {
-    } break;
-    case (0b00110 | 0b01000000): {
-    } break;
-    case (0b00111 | 0b01000000): {
-        SPU_execute_O_CLEA(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b01000 | 0b01000000): {
-        SPU_execute_O_OUT(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b01001 | 0b01000000): {
-        SPU_execute_O_IN(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00000 | 0b01100000): {
-    } break;
-    case (0b00001 | 0b01100000): {
-    } break;
-    case (0b00010 | 0b01100000): {
-    } break;
-    case (0b00011 | 0b01100000): {
-    } break;
-    case (0b00100 | 0b01100000): {
-        SPU_execute_O_ADD(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00101 | 0b01100000): {
-        SPU_execute_O_SUB(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00110 | 0b01100000): {
-        SPU_execute_O_MUL(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b00111 | 0b01100000): {
-        SPU_execute_O_DIV(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b01000 | 0b01100000): {
-        SPU_execute_O_CMOV(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
-    case (0b01001 | 0b01100000): {
-        SPU_execute_O_LT(processor, {.opcode=opcode, .args_ptr=(int8_t*)real_instruction_ptr + OPCODE_SIZE});
-    } break;
+        EXPAND_INSTRUCTIONS()
         default: break;
     }
     #undef INSTRUCTION
@@ -390,16 +338,30 @@ static inline void SPU_execute_instruction(SPU* processor, uint32_t virtual_inst
 
 
 
-void SPU_execute_O_NOP(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_NOP(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_HLT(SPU* processor, SPUInstruction instr)
-{
-    UNUSED(instr);
+void SPU_execute_O_HLT(SPU* processor, int32_t* args, uint8_t opcode)
+{ 
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
+    UNUSED(args);
+    UNUSED(opcode);
     
     processor->is_running = 0;
     
@@ -407,18 +369,23 @@ void SPU_execute_O_HLT(SPU* processor, SPUInstruction instr)
 }
 
 
-void SPU_execute_O_MOV_CONST(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_MOV_CONST(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    uint32_t* args = (uint32_t*)instr.args_ptr;
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
 
     int32_t relative_destination_ptr = (int32_t) args[0];
 
-    uint32_t value = args[1];
+    uint32_t value = ((uint32_t*)args)[1];
 
     uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);
 
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
     }
@@ -428,9 +395,14 @@ void SPU_execute_O_MOV_CONST(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_LEA(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
 
     int32_t relative_destination_ptr = args[0];
 
@@ -440,7 +412,7 @@ void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr)
 
     //printf_yellow("LEA dest=%p, value=%u - ", abs_destination_ptr, local_ptr_value);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         //printf_yellow("$");
         abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
@@ -456,11 +428,13 @@ void SPU_execute_O_LEA(SPU* processor, SPUInstruction instr)
 }
 
 
-void SPU_execute_O_MOV(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_MOV(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_dst_ptr = args[0];
     int32_t relative_src_ptr = args[1];
@@ -471,7 +445,7 @@ void SPU_execute_O_MOV(SPU* processor, SPUInstruction instr)
     uint32_t abs_src_ptr = SPU_get_abs_ptr(processor, relative_src_ptr);
 
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
 
@@ -490,50 +464,96 @@ void SPU_execute_O_MOV(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_INV(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_INV(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_NEG(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_NEG(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_INC(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_INC(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
-void SPU_execute_O_DEC(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_DEC(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_ALL(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_ALL(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
-void SPU_execute_O_ANY(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_ANY(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_CLEA(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_CLEA(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
+    assert(args != NULL);
+    
     int32_t flag_ptr = args[0];
     int32_t relative_destination_ptr = args[1];
     int32_t local_ptr_value = args[2];
@@ -541,7 +561,7 @@ void SPU_execute_O_CLEA(SPU* processor, SPUInstruction instr)
     uint32_t abs_destination_ptr = SPU_get_abs_ptr(processor, relative_destination_ptr);
     uint32_t flag = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, flag_ptr));
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         flag = SPU_read_memory_cell(processor, flag);
         abs_destination_ptr = SPU_read_memory_cell(processor, abs_destination_ptr);
@@ -555,11 +575,13 @@ void SPU_execute_O_CLEA(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_OUT(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
 
     int32_t port_number = args[0];
     int32_t relative_data_ptr = args[1];
@@ -568,7 +590,7 @@ void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr)
 
     uint32_t abs_data_ptr = SPU_get_abs_ptr(processor, relative_data_ptr);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         port_number = (int32_t)SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, port_number));
         abs_data_ptr = SPU_read_memory_cell(processor, abs_data_ptr);
@@ -585,11 +607,13 @@ void SPU_execute_O_OUT(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_IN(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_IN(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
     
     uint32_t port_number = (uint32_t)args[0];
     int32_t relative_data_ptr = args[1];
@@ -597,7 +621,7 @@ void SPU_execute_O_IN(SPU* processor, SPUInstruction instr)
 
     uint32_t abs_data_ptr = SPU_get_abs_ptr(processor, relative_data_ptr);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         port_number = SPU_read_memory_cell(processor, port_number);
         abs_data_ptr = SPU_read_memory_cell(processor, abs_data_ptr);
@@ -609,43 +633,73 @@ void SPU_execute_O_IN(SPU* processor, SPUInstruction instr)
         return; /* UNKNOWN PORT */
     }
 
-    port_out_handlers[port_number](processor, abs_data_ptr, (uint32_t)count);
+    port_in_handlers[port_number](processor, abs_data_ptr, (uint32_t)count);
 
     return;
 }
 
 
 
-void SPU_execute_O_EQ(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_EQ(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
-void SPU_execute_O_OR(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_OR(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
-void SPU_execute_O_AND(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_AND(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
-void SPU_execute_O_XOR(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_XOR(SPU* processor, int32_t* args, uint8_t opcode)
 {
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
+
+    assert(args != NULL);
+    
     UNUSED(processor);
-    UNUSED(instr);
+    UNUSED(args);
+    UNUSED(opcode);
     return;
 }
 
-void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_ADD(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_dst_ptr = args[0];
     int32_t relative_A_ptr = args[1];
@@ -656,7 +710,7 @@ void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
     uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
         abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
@@ -716,11 +770,13 @@ void SPU_execute_O_ADD(SPU* processor, SPUInstruction instr)
 
     return;
 }
-void SPU_execute_O_SUB(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_SUB(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_dst_ptr = args[0];
     int32_t relative_A_ptr = args[1];
@@ -731,7 +787,7 @@ void SPU_execute_O_SUB(SPU* processor, SPUInstruction instr)
     uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
         abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
@@ -791,11 +847,13 @@ void SPU_execute_O_SUB(SPU* processor, SPUInstruction instr)
 
     return;
 }
-void SPU_execute_O_MUL(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_MUL(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*)instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_dst_ptr = args[0];
     int32_t relative_A_ptr = args[1];
@@ -808,7 +866,7 @@ void SPU_execute_O_MUL(SPU* processor, SPUInstruction instr)
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
         abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
@@ -868,11 +926,13 @@ void SPU_execute_O_MUL(SPU* processor, SPUInstruction instr)
 
     return;
 }
-void SPU_execute_O_DIV(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_DIV(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*)instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_dst_ptr = args[0];
     int32_t relative_A_ptr = args[1];
@@ -885,7 +945,7 @@ void SPU_execute_O_DIV(SPU* processor, SPUInstruction instr)
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
         abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
@@ -946,10 +1006,14 @@ void SPU_execute_O_DIV(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_CMOV(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
+    assert(args != NULL);
+    
     int32_t flag_ptr = args[0];
     int32_t relative_dst_ptr = args[1];
     int32_t relative_src_ptr = args[2];
@@ -959,7 +1023,7 @@ void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr)
     uint32_t abs_src_ptr = SPU_get_abs_ptr(processor, relative_src_ptr);
     uint32_t flag = SPU_read_memory_cell(processor, SPU_get_abs_ptr(processor, flag_ptr));
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         flag = SPU_read_memory_cell(processor, flag);
         abs_dst_ptr = SPU_read_memory_cell(processor, abs_dst_ptr);
@@ -978,11 +1042,13 @@ void SPU_execute_O_CMOV(SPU* processor, SPUInstruction instr)
     return;
 }
 
-void SPU_execute_O_LT(SPU* processor, SPUInstruction instr)
+void SPU_execute_O_LT(SPU* processor, int32_t* args, uint8_t opcode)
 {
-    assert(instr.args_ptr != NULL);
+    assert(processor != NULL);
+    assert(processor->memory_size != 0);
+    assert(processor->memory != NULL);
 
-    int32_t* args = (int32_t*) instr.args_ptr;
+    assert(args != NULL);
 
     int32_t relative_flag_ptr = args[0];
     int32_t relative_A_ptr = args[1];
@@ -993,7 +1059,7 @@ void SPU_execute_O_LT(SPU* processor, SPUInstruction instr)
     uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
 
-    if ((instr.opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
+    if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
         abs_flag_ptr = SPU_read_memory_cell(processor, abs_flag_ptr);
         abs_A_ptr = SPU_read_memory_cell(processor, abs_A_ptr);
@@ -1036,8 +1102,6 @@ void SPU_handle_out_text_VGA(SPU* processor, uint32_t data_ptr, uint32_t count)
 {
     assert(processor != NULL);
 
-    //printf_yellow("VGA_OUT - data_ptr: %d, count: %d\n", data_ptr, count);
-
     if (!SPU_is_valid_mem_array(processor, data_ptr, count)) return;
 
     int8_t c = 0;
@@ -1068,17 +1132,13 @@ void SPU_handle_out_VGA(SPU* processor, uint32_t data_ptr, uint32_t count)
 {
     assert(processor != NULL);
 
-    //printf_yellow("out_VGA: data=%d, count=%d\n");
-
 
     if (!SPU_is_valid_mem_array(processor, data_ptr, count)) return;
 
     if (VGA_window == NULL)
     {
-        //printf("Creating SDL window\n");
-        VGA_window = SDL_CreateWindow("SPU VGA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, VGA_screen_view_width, VGA_screen_view_height, SDL_WINDOW_SHOWN);
-        //printf("Created SDL window - %p\n", (void*)VGA_window);
-        //printf("%s\n", SDL_GetError());
+        VGA_window = SDL_CreateWindow("SPU VGA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+                    VGA_screen_view_width, VGA_screen_view_height, SDL_WINDOW_SHOWN);
     }
 
     SDL_Surface* window_surface = SDL_GetWindowSurface(VGA_window);
@@ -1094,13 +1154,13 @@ void SPU_handle_out_VGA(SPU* processor, uint32_t data_ptr, uint32_t count)
         {
             pixel = SPU_read_memory_cell(processor, 
                 data_ptr + (uint32_t)y * sizeof(uint32_t) * VGA_screen_true_width + (uint32_t)x * sizeof(uint32_t));
-            for (int i = 0; i < VGA_screen_view_height / VGA_screen_true_height; ++i)
+            for (uint32_t i = 0; i < VGA_screen_view_height / VGA_screen_true_height; ++i)
             {
-                for (int j = 0; j < VGA_screen_view_width / VGA_screen_true_width; ++j)
+                for (uint32_t j = 0; j < VGA_screen_view_width / VGA_screen_true_width; ++j)
                 {
                     *(uint32_t*)(pixels_arr + (y * VGA_screen_view_height / VGA_screen_true_height + i) 
                                                 * window_surface->pitch
-                                            + ((uint32_t)x * VGA_screen_view_width / VGA_screen_true_width + j) * sizeof(uint32_t)) = pixel;
+                                            + ((uint32_t)x * VGA_screen_view_width / VGA_screen_true_width + j) * (uint32_t)sizeof(uint32_t)) = pixel;
                 }
             }
         }
@@ -1113,14 +1173,62 @@ void SPU_handle_out_VGA(SPU* processor, uint32_t data_ptr, uint32_t count)
 
 void SPU_handle_out_port_printf(SPU* processor, uint32_t data_ptr, uint32_t count)
 {
+    assert(processor != NULL);
+
     if (count != 4)
     {
         return;
     }
+
+    if (!SPU_is_valid_mem_array(processor, data_ptr, count)) return;
 
     int32_t number = (int32_t) SPU_read_memory_cell(processor, data_ptr);
 
     printf_blinking("SPU_OUTPUT: '%d'\n", number);
 
     return;
+}
+
+
+void SPU_handle_out_port_sound(SPU* processor, uint32_t data_ptr, uint32_t count)
+{
+    assert(processor != NULL);
+ 
+    if (!SPU_is_valid_mem_array(processor, data_ptr, count)) return;
+
+    if (audio_port_device_id == 0)
+    {
+        SDL_AudioSpec desired_spec, obtained_spec;
+        SDL_zero(desired_spec);
+
+        desired_spec.freq = FREQUENCY;
+        desired_spec.format = SAMPLE_FORMAT;
+        desired_spec.channels = CHANNELS;
+        desired_spec.samples = SAMPLE_COUNT;
+        desired_spec.callback = NULL;
+        audio_port_device_id = SDL_OpenAudioDevice(NULL, 0, &desired_spec, 
+            &obtained_spec, SDL_AUDIO_ALLOW_FORMAT_CHANGE); 
+    }
+
+    uint32_t* samples_buffer = (uint32_t*) calloc(SAMPLE_COUNT, sizeof(uint32_t));
+
+    SDL_PauseAudioDevice(audio_port_device_id, 1);
+
+    SDL_ClearQueuedAudio(audio_port_device_id);
+    SDL_QueueAudio(audio_port_device_id, SPU_get_real_mem_addr(processor, data_ptr), count);
+
+    SDL_PauseAudioDevice(audio_port_device_id, 0);
+    free(samples_buffer);
+}
+
+void SPU_handle_in_port_timer(SPU* processor, uint32_t dst_ptr, uint32_t count)
+{
+    assert(processor != NULL);
+
+    if (count != sizeof(uint32_t)) return;
+    if (!SPU_is_valid_mem_array(processor, dst_ptr, count)) return;
+
+    uint32_t time = (uint32_t) SDL_GetTicks64();
+
+    SPU_write_memory(processor, dst_ptr, &time, count);
 }

@@ -1,15 +1,7 @@
-CFLAGS=-lm -D _DEBUG -g -ggdb3 -std=gnu++20 -O3 -Wall -Wextra -Wpedantic -Weffc++ -Waggressive-loop-optimizations -Wc++14-compat \
--Wmissing-declarations -Wcast-align -Wcast-qual -Wchar-subscripts -Wconditionally-supported -Wconversion -Wctor-dtor-privacy \
--Wempty-body -Wfloat-equal -Wformat-nonliteral -Wformat-security -Wformat-signedness -Wformat=2 -Winline -Wlogical-op \
--Wnon-virtual-dtor -Wopenmp-simd -Woverloaded-virtual -Wpacked -Wpointer-arith -Winit-self -Wredundant-decls -Wshadow \
--Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=2 -Wsuggest-attribute=noreturn \
--Wsuggest-final-methods -Wsuggest-final-types -Wsuggest-override -Wswitch-default -Wswitch-enum -Wsync-nand -Wundef \
--Wunreachable-code -Wunused -Wuseless-cast -Wvariadic-macros -Wno-literal-suffix -Wno-missing-field-initializers \
--Wno-narrowing -Wno-old-style-cast -Wno-varargs -Wstack-protector -fcheck-new -fsized-deallocation -fstack-protector \
--fstrict-overflow -fno-omit-frame-pointer -Wlarger-than=65536 -Wstack-usage=65536 -pie -fPIE -Wno-format-nonliteral \
--Wstrict-aliasing=2 -lSDL2
+CC=clang
+CFLAGS=-D _DEBUG -g -std=gnu++20 -O3 -Wall -Wextra -Wpedantic -Wno-inline -Wno-cast-align -fdiagnostics-color=always
 
-LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort stack debug_utilites SPU SPU_assembler AVXXX_N
+LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort stack debug_utilites SPU SPU_assembler AVXXX_N SPU_disassembler
 EXECUTABLE_SUBDIRS=onegin_main SPU_vm_main SPU_assembler_main SPU_disassembler_main
 TEST_SUBDIRS=tests
 
@@ -20,6 +12,7 @@ TEST_SUBDIRS_CLEAN=$(addprefix clean/, $(TEST_SUBDIRS))
 INCLUDE=$(abspath $(shell find . -type d))
 INCLUDE_PARAMS=$(foreach d, $(INCLUDE), -I$d)
 
+LIBS=sdl2
 
 .EXPORT_ALL_VARIABLES:
 

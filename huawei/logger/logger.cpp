@@ -23,8 +23,8 @@ static LoggerProperties logger_properties =
     .filename = NULL
 };
 
-char timestamp_buffer[MAX_LOGGER_TIMESTAMP_LEN + 1] = {0};
-char logger_annotation_buffer[MAX_LOGGER_ANNOTATION_LEN + 1] = {0};
+char timestamp_buffer[MAX_LOGGER_TIMESTAMP_LEN + 2] = {0};
+char logger_annotation_buffer[MAX_LOGGER_ANNOTATION_LEN + 2] = {0};
 
 
 int LOG_START(const char* filename, int log_targets_count, LogTarget* log_targets)
@@ -232,8 +232,8 @@ int write_log_annotation(LogTarget target, LogMessageType message_type)
 
     time_t timer = {};
     
-    memset(timestamp_buffer, '\0', MAX_LOGGER_TIMESTAMP_LEN);
-    memset(logger_annotation_buffer, '\0', MAX_LOGGER_ANNOTATION_LEN);
+    memset(timestamp_buffer, '\0', MAX_LOGGER_TIMESTAMP_LEN + 1);
+    memset(logger_annotation_buffer, '\0', MAX_LOGGER_ANNOTATION_LEN + 1);
 
     struct tm* tm_info;
 
@@ -264,10 +264,10 @@ int write_log_annotation(LogTarget target, LogMessageType message_type)
         }
     }
 
-    strcat(logger_annotation_buffer, logger_properties.filename);
-    strncat(logger_annotation_buffer, timestamp_buffer, MAX_LOGGER_TIMESTAMP_LEN);
-    strcat(logger_annotation_buffer, get_log_message_type_str(message_type));
-    strcat(logger_annotation_buffer, "]: ");
+    strlcat(logger_annotation_buffer, logger_properties.filename, MAX_LOGGER_ANNOTATION_LEN);
+    strlcat(logger_annotation_buffer, timestamp_buffer, MAX_LOGGER_ANNOTATION_LEN);
+    strlcat(logger_annotation_buffer, get_log_message_type_str(message_type), MAX_LOGGER_ANNOTATION_LEN);
+    strlcat(logger_annotation_buffer, "]: ", MAX_LOGGER_ANNOTATION_LEN);
 
     return fwrite(logger_annotation_buffer, sizeof(char), strlen(logger_annotation_buffer), fp) == 0 ? -1 : 0;
 }

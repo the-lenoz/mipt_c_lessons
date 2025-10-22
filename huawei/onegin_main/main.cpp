@@ -14,7 +14,6 @@
 LogTarget log_targets[] = 
 {
     {}, // stdout
-    {"/tmp/log.html"}
 };
 const int log_targets_count = sizeof(log_targets) / sizeof(log_targets[0]);
 

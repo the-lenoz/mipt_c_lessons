@@ -8,7 +8,10 @@
             .status_code = stat_code,\
             .filename = __FILE__,\
             .func_name = __func__,\
-            .line_number = __LINE__\
+            .line_number = __LINE__,\
+            .error_description = "",\
+            .custom_status_data = NULL,\
+            .custom_status_data_handler = NULL\
         }
 
 #define MAKE_EXTENDED_ERROR_STRUCT(stat_code, description) {\
@@ -17,6 +20,8 @@
             .func_name = __func__,\
             .line_number = __LINE__,\
             .error_description = description,\
+            .custom_status_data = NULL,\
+            .custom_status_data_handler = NULL\
         }
 
 #define MAKE_CUSTOM_ERROR_STRUCT(handler, data) {\
@@ -24,11 +29,13 @@
             .filename = __FILE__,\
             .func_name = __func__,\
             .line_number = __LINE__,\
+            .error_description = NULL,\
             .custom_status_data = data,\
             .custom_status_data_handler = handler\
         }
         
-#define MAKE_SUCCESS_STRUCT(data) {.status_code=SUCCESS}
+#define MAKE_SUCCESS_STRUCT(data) { .status_code=SUCCESS, .filename=NULL, .func_name=NULL, .line_number=0, \
+                                    .error_description=NULL, .custom_status_data=NULL, .custom_status_data_handler=NULL}
 
 #define BACKTRACE_BUFFER_SIZE 512
 
