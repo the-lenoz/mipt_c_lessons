@@ -1,11 +1,13 @@
 #include "SPU_assembler.hpp"
 #include "file_operations.hpp"
 #include "mystr.hpp"
+#include "my_assert.hpp"
 #include "stack.hpp"
 #include "status.hpp"
 #include "terminal_decorator.hpp"
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -16,6 +18,8 @@ PreprocessedLine* preprocess_asm(my_string* source_lines_buffer, size_t* lines_n
 
 int fix_up_asm(Stack* asm_labels, size_t lines_num, AssembledLine* bytecode_lines);
 
+int fix_up_for_label(ASMLabel label, AssembledLine* bytecode_lines, size_t lines_num);
+
 StatusData write_bytecode_lines(size_t lines_num, AssembledLine* bytecode_lines, const char* output_path);
 
 int calculate_label_offsets(Stack* preprocessed_labels, Stack* asm_labels, AssembledLine* bytecode_lines, size_t lines_num);
@@ -23,6 +27,9 @@ int calculate_label_offsets(Stack* preprocessed_labels, Stack* asm_labels, Assem
 
 int process_asm_file(const char* input_path, const char* output_path)
 {
+    assert(input_path);
+    assert(output_path);
+
     last_line_error = {};
     last_line_error.filename = input_path;
 
@@ -99,6 +106,10 @@ int process_asm_file(const char* input_path, const char* output_path)
 
 PreprocessedLine* preprocess_asm(my_string* source_lines_buffer, size_t* lines_num, Stack* labels)
 {
+    assert(source_lines_buffer);
+    assert(lines_num);
+    assert(labels);
+
     PreprocessedLine* preprocessed_lines_buffer = (PreprocessedLine*) calloc(*lines_num, sizeof(PreprocessedLine));
 
     //remove comments and empty lines. LStrip lines
@@ -157,6 +168,8 @@ PreprocessedLine* preprocess_asm(my_string* source_lines_buffer, size_t* lines_n
 
 AssembledLine* process_asm(PreprocessedLine* preprocessed_lines, size_t lines_num)
 {
+    assert(preprocessed_lines);
+
     AssembledLine* assembled_lines_buffer = (AssembledLine*) calloc(lines_num, sizeof(AssembledLine));
 
     size_t bytecode_offset = 0;
@@ -204,6 +217,8 @@ AssembledLine* process_asm(PreprocessedLine* preprocessed_lines, size_t lines_nu
 
 AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int source_line_number)
 {
+    assert(source_line.str);
+
     uint32_t args[MAX_ARGS_NUMBER] = {};
     unsigned char arg_type = ARG_TYPE_ASIS;
 
@@ -343,43 +358,52 @@ AssembledLine assemble_line(my_string source_line, size_t bytecode_offset, int s
 
 int fix_up_asm(Stack* asm_labels, size_t lines_num, AssembledLine* bytecode_lines)
 {
-    int32_t relative_address = 0;
+    assert(asm_labels);
+    assert(bytecode_lines);
+
     ASMLabel label = {};
+    int status = 0;
 
     while (asm_labels->size)
     {
         label = stack_pop(asm_labels);
-        for (size_t i = 0; i < lines_num; ++i)
-        {
-            for (size_t j = 0; j < MAX_ARGS_NUMBER; ++j)
-            {
-
-                if (*(bytecode_lines[i].label_args_names[j]) == 0)
-                {
-                    continue;
-                }
-
-
-                if (strcmp(bytecode_lines[i].label_args_names[j], label.name) != 0)
-                {
-                    continue;
-                }
-
-                relative_address = (int32_t) label.bytecode_offset -  (int32_t) bytecode_lines[i].bytecode_offset;
-                memcpy(bytecode_lines[i].bytecode + OPCODE_SIZE + j * ARG_SIZE, &relative_address, sizeof(relative_address));
-
-                printf_yellow("Written label data LINE: %zu, arg[%zu] <- (%u - %u) = %d\n", i + 1, j, 
-                    label.bytecode_offset, bytecode_lines[i].bytecode_offset, relative_address);
-            }
-        }
+        status = fix_up_for_label(label, bytecode_lines, lines_num) || status;
     }
     stack_destroy(asm_labels);
 
-    return 0;
+    return status;
+}
+
+int fix_up_for_label(ASMLabel label, AssembledLine* bytecode_lines, size_t lines_num)
+{
+    int32_t relative_address = 0;
+    int status = -1;
+    for (size_t i = 0; i < lines_num; ++i)
+    {
+        for (size_t j = 0; j < MAX_ARGS_NUMBER; ++j)
+        {
+            if (strcmp(bytecode_lines[i].label_args_names[j], label.name) != 0)
+            {
+                continue;
+            }
+
+            relative_address = (int32_t) label.bytecode_offset -  (int32_t) bytecode_lines[i].bytecode_offset;
+
+            *(int32_t*)(bytecode_lines[i].bytecode + OPCODE_SIZE + j * ARG_SIZE) = relative_address;
+
+            printf_yellow("Written label data LINE: %zu, arg[%zu] <- (%u - %u) = %d\n", i + 1, j, 
+                label.bytecode_offset, bytecode_lines[i].bytecode_offset, relative_address);
+            status = 0;
+        }
+    }
+    return status;
 }
 
 StatusData write_bytecode_lines(size_t lines_num, AssembledLine* bytecode_lines, const char* output_path)
 {
+    assert(bytecode_lines);
+    assert(output_path);
+
     size_t bytecode_len = 0;
 
     char* bytecode_buffer = (char*) calloc(lines_num, MAX_INSTRUCTION_SIZE);
@@ -415,6 +439,10 @@ StatusData write_bytecode_lines(size_t lines_num, AssembledLine* bytecode_lines,
 
 int calculate_label_offsets(Stack* preprocessed_labels, Stack* asm_labels, AssembledLine* bytecode_lines, size_t lines_num)
 {
+    assert(preprocessed_labels);
+    assert(asm_labels);
+    assert(bytecode_lines);
+
     ASMLabel label = {};
 
     while (preprocessed_labels->size)
@@ -424,18 +452,16 @@ int calculate_label_offsets(Stack* preprocessed_labels, Stack* asm_labels, Assem
         {
             print_error(preprocessed_labels->last_operation_status);
         }
-        for (size_t i = 0; i < lines_num; ++i)
+        
+        assert((size_t)label.line_number < lines_num);
+
+        label.bytecode_offset = bytecode_lines[label.line_number].bytecode_offset;
+        stack_push(asm_labels, label);
+        if (asm_labels->last_operation_status.status_code != SUCCESS)
         {
-            if (label.line_number == bytecode_lines[i].src_line_number)
-            {
-                label.bytecode_offset = bytecode_lines[i].bytecode_offset;
-                stack_push(asm_labels, label);
-                if (asm_labels->last_operation_status.status_code != SUCCESS)
-                {
-                    print_error(preprocessed_labels->last_operation_status);
-                }
-            }
+            print_error(preprocessed_labels->last_operation_status);
         }
+
     }
     return 0;
 }

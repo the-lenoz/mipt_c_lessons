@@ -60,8 +60,7 @@ loop1:
     $LEA    IP  loop1
 
 
-IP:
-    NOP
+IP: NOP
     NOP
     NOP
     NOP
