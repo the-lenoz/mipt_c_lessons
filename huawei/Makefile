@@ -1,8 +1,8 @@
 CC=clang
 CFLAGS=-D _DEBUG -g -std=gnu++20 -O3 -Wall -Wextra -Wpedantic -Wno-inline -Wno-cast-align -fdiagnostics-color=always
 
-LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort stack debug_utilites SPU SPU_assembler AVXXX_N SPU_disassembler
-EXECUTABLE_SUBDIRS=onegin_main SPU_vm_main SPU_assembler_main SPU_disassembler_main
+LIB_SUBDIRS=terminal_decorator error_handling strings logger file_operations array_operations sort stack debug_utilites SPU SPU_assembler AVXXX_N SPU_disassembler list
+EXECUTABLE_SUBDIRS=onegin_main SPU_vm_main SPU_assembler_main SPU_disassembler_main list_main
 TEST_SUBDIRS=tests
 
 LIB_SUBDIRS_CLEAN=$(addprefix clean/, $(LIB_SUBDIRS))
