@@ -1,21 +1,39 @@
 #include "AVXXX_N.hpp"
 #include <string.h>
 
+#define OPTIMIZATION_CASE(OP, type, dst, a, b) case sizeof(type): *(type*)dst = OP(*(type*)a, *(type*)b); break;
+
+#define OPTIMIZE_LONG(OP, unoptimized, cnt, dst, a, b)  \
+    do switch (cnt)                                     \
+    {                                                   \
+        OPTIMIZATION_CASE(OP, int8_t, dst, a, b)        \
+        OPTIMIZATION_CASE(OP, int16_t, dst, a, b)       \
+        OPTIMIZATION_CASE(OP, int32_t, dst, a, b)       \
+        OPTIMIZATION_CASE(OP, int64_t, dst, a, b)       \
+        default: unoptimized break;                     \
+    } while(0)
+
+
 
 int long_add(int8_t* a, int8_t* b, int8_t* dst, uint32_t count)
 {
     uint8_t carry = 0;
-    uint8_t a_val = 0, b_val = 0;
 
-    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    #define OPERATION(a, b) ((a) + (b))
+    OPTIMIZE_LONG(OPERATION, 
     {
-        memcpy(&a_val, a + i, 1);
-        memcpy(&b_val, b + i, 1);
-        carry = a_val + b_val + carry;
-        
-        memcpy(dst + i, &carry, 1);
-        carry = carry / 256;
-    }
+        for (uint32_t i = 0; i < (uint32_t)count; ++i)
+        {
+            carry = *(a + i) + *(b + i) + carry;
+            
+            memcpy(dst + i, &carry, 1);
+            carry = carry / 256;
+        }
+    }, 
+    count, dst, a, b);
+    
+
+    #undef OPERATION
     return 0;
 }
 
@@ -23,57 +41,44 @@ int long_sub(int8_t* a, int8_t* b, int8_t* dst, uint32_t count)
 {
     uint8_t carry = 0;
     int32_t result = 0;
-    uint8_t a_val = 0, b_val = 0;
 
-    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    #define OPERATION(a, b) ((a) - (b))
+    OPTIMIZE_LONG(OPERATION, 
     {
-        memcpy(&a_val, a + i, 1);
-        memcpy(&b_val, b + i, 1);
-        result = a_val - b_val - carry;
-        
-        memcpy(dst + i, &result, 1);
-        carry = result >= 0 ? 0 : 1;
-    }
+        for (uint32_t i = 0; i < (uint32_t)count; ++i)
+        {
+            result = *(a + i) - *(b + i) - carry;
+            
+            memcpy(dst + i, &result, 1);
+            carry = result >= 0 ? 0 : 1;
+        }
+    },
+    count, dst, a, b);
+    #undef OPERATION
     return 0;
 }
 
 int long_mul(int8_t* a, int8_t* b, int8_t* dst, uint32_t count)
 {
-    //NOT YET IMPLEMENTED
-
-    uint8_t carry = 0;
-    int32_t result = 0;
-    uint8_t a_val = 0, b_val = 0;
-
-    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    #define OPERATION(a, b) ((a) * (b))
+    OPTIMIZE_LONG(OPERATION, 
     {
-        memcpy(&a_val, a + i, 1);
-        memcpy(&b_val, b + i, 1);
-        result = a_val - b_val - carry;
-        
-        memcpy(dst + i, &result, 1);
-        carry = result >= 0 ? 0 : 1;
-    }
+        //NOT YET IMPLEMENTED
+    },
+    count, dst, a, b);
+    #undef OPERATION
     return 0;
 }
 
 int long_div(int8_t* a, int8_t* b, int8_t* dst, uint32_t count)
 {
-    //NOT YET IMPLEMENTED
-
-    uint8_t carry = 0;
-    int32_t result = 0;
-    uint8_t a_val = 0, b_val = 0;
-
-    for (uint32_t i = 0; i < (uint32_t)count; ++i)
+    #define OPERATION(a, b) ((a) / (b))
+    OPTIMIZE_LONG(OPERATION, 
     {
-        memcpy(&a_val, a + i, 1);
-        memcpy(&b_val, b + i, 1);
-        result = a_val - b_val - carry;
-        
-        memcpy(dst + i, &result, 1);
-        carry = result >= 0 ? 0 : 1;
-    }
+        //NOT YET IMPLEMENTED
+    },
+    count, dst, a, b);
+    #undef OPERATION
     return 0;
 }
     

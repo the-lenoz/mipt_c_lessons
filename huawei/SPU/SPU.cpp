@@ -722,50 +722,10 @@ void SPU_execute_O_ADD(SPU* processor, int32_t* args, uint8_t opcode)
         SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&
         SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))
     {
-        int8_t a_byte = 0, b_byte = 0, c_byte = 0;
-        int16_t a_word = 0, b_word = 0, c_word = 0;
-        int32_t a_dword = 0, b_dword = 0, c_dword = 0;
-        int64_t a_qword = 0, b_qword = 0, c_qword = 0;
-        switch (count) {
-            case sizeof(int8_t):
-                SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));
-                SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));
-
-                c_byte = a_byte + b_byte;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));
-                break;
-            case sizeof(int16_t):
-                SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));
-                SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));
-
-                c_word = a_word + b_word;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));
-                break;
-            case sizeof(int32_t):
-                SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));
-                SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));
-
-                c_dword = a_dword + b_dword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));
-                break;
-            case sizeof(int64_t):
-                SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));
-                SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));
-
-                c_qword = a_qword + b_qword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));
-                break;
-            default:
-                long_add(
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);
-                break;
-        }
+        int8_t* real_A_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr);
+        int8_t* real_B_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr);
+        int8_t* real_dst_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr);
+        long_add(real_A_ptr, real_B_ptr, real_dst_ptr, (uint32_t)count);
     }
 
     return;
@@ -799,50 +759,10 @@ void SPU_execute_O_SUB(SPU* processor, int32_t* args, uint8_t opcode)
         SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&
         SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))
     {
-        int8_t a_byte = 0, b_byte = 0, c_byte = 0;
-        int16_t a_word = 0, b_word = 0, c_word = 0;
-        int32_t a_dword = 0, b_dword = 0, c_dword = 0;
-        int64_t a_qword = 0, b_qword = 0, c_qword = 0;
-        switch (count) {
-            case sizeof(int8_t):
-                SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));
-                SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));
-
-                c_byte = a_byte - b_byte;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));
-                break;
-            case sizeof(int16_t):
-                SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));
-                SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));
-
-                c_word = a_word - b_word;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));
-                break;
-            case sizeof(int32_t):
-                SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));
-                SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));
-
-                c_dword = a_dword - b_dword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));
-                break;
-            case sizeof(int64_t):
-                SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));
-                SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));
-
-                c_qword = a_qword - b_qword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));
-                break;
-            default:
-                long_sub(
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);
-                break;
-        }
+        int8_t* real_A_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr);
+        int8_t* real_B_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr);
+        int8_t* real_dst_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr);
+        long_sub(real_A_ptr, real_B_ptr, real_dst_ptr, (uint32_t)count);
     }
 
     return;
@@ -860,11 +780,9 @@ void SPU_execute_O_MUL(SPU* processor, int32_t* args, uint8_t opcode)
     int32_t relative_B_ptr = args[2];
     int32_t count = args[3];
 
-
     uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);
     uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
-
 
     if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
@@ -878,50 +796,10 @@ void SPU_execute_O_MUL(SPU* processor, int32_t* args, uint8_t opcode)
         SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&
         SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))
     {
-        int8_t a_byte = 0, b_byte = 0, c_byte = 0;
-        int16_t a_word = 0, b_word = 0, c_word = 0;
-        int32_t a_dword = 0, b_dword = 0, c_dword = 0;
-        int64_t a_qword = 0, b_qword = 0, c_qword = 0;
-        switch (count) {
-            case sizeof(int8_t):
-                SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));
-                SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));
-
-                c_byte = a_byte * b_byte;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));
-                break;
-            case sizeof(int16_t):
-                SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));
-                SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));
-
-                c_word = a_word * b_word;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));
-                break;
-            case sizeof(int32_t):
-                SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));
-                SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));
-
-                c_dword = a_dword * b_dword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));
-                break;
-            case sizeof(int64_t):
-                SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));
-                SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));
-
-                c_qword = a_qword * b_qword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));
-                break;
-            default:
-                long_mul(
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);
-                break;
-        }
+        int8_t* real_A_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr);
+        int8_t* real_B_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr);
+        int8_t* real_dst_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr);
+        long_mul(real_A_ptr, real_B_ptr, real_dst_ptr, (uint32_t)count);
     }
 
     return;
@@ -939,11 +817,9 @@ void SPU_execute_O_DIV(SPU* processor, int32_t* args, uint8_t opcode)
     int32_t relative_B_ptr = args[2];
     int32_t count = args[3];
 
-
     uint32_t abs_dst_ptr = SPU_get_abs_ptr(processor, relative_dst_ptr);
     uint32_t abs_A_ptr = SPU_get_abs_ptr(processor, relative_A_ptr);
     uint32_t abs_B_ptr = SPU_get_abs_ptr(processor, relative_B_ptr);
-
 
     if ((opcode & ARG_TYPE_OPCODE_MASK) == ARG_TYPE_PTR)
     {
@@ -957,50 +833,10 @@ void SPU_execute_O_DIV(SPU* processor, int32_t* args, uint8_t opcode)
         SPU_is_valid_mem_array(processor, abs_B_ptr, (uint32_t)count) &&
         SPU_is_valid_mem_array(processor, abs_dst_ptr, (uint32_t)count))
     {
-        int8_t a_byte = 0, b_byte = 0, c_byte = 0;
-        int16_t a_word = 0, b_word = 0, c_word = 0;
-        int32_t a_dword = 0, b_dword = 0, c_dword = 0;
-        int64_t a_qword = 0, b_qword = 0, c_qword = 0;
-        switch (count) {
-            case sizeof(int8_t):
-                SPU_read_memory(processor, &a_byte, abs_A_ptr, sizeof(a_byte));
-                SPU_read_memory(processor, &b_byte, abs_B_ptr, sizeof(b_byte));
-
-                c_byte = a_byte / b_byte;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_byte, sizeof(c_byte));
-                break;
-            case sizeof(int16_t):
-                SPU_read_memory(processor, &a_word, abs_A_ptr, sizeof(a_word));
-                SPU_read_memory(processor, &b_word, abs_B_ptr, sizeof(b_word));
-
-                c_word = a_word / b_word;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_word, sizeof(c_word));
-                break;
-            case sizeof(int32_t):
-                SPU_read_memory(processor, &a_dword, abs_A_ptr, sizeof(a_dword));
-                SPU_read_memory(processor, &b_dword, abs_B_ptr, sizeof(b_dword));
-
-                c_dword = a_dword / b_dword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_dword, sizeof(c_dword));
-                break;
-            case sizeof(int64_t):
-                SPU_read_memory(processor, &a_qword, abs_A_ptr, sizeof(a_qword));
-                SPU_read_memory(processor, &b_qword, abs_B_ptr, sizeof(b_qword));
-
-                c_qword = a_qword / b_qword;
-
-                SPU_write_memory(processor, abs_dst_ptr, &c_qword, sizeof(c_qword));
-                break;
-            default:
-                long_div(
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr), 
-                        (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr), (uint32_t)count);
-                break;
-        }
+        int8_t* real_A_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_A_ptr);
+        int8_t* real_B_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_B_ptr);
+        int8_t* real_dst_ptr = (int8_t*)SPU_get_real_mem_addr(processor, abs_dst_ptr);
+        long_div(real_A_ptr, real_B_ptr, real_dst_ptr, (uint32_t)count);
     }
 
     return;
