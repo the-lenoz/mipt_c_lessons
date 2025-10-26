@@ -13,6 +13,9 @@
 
 int fdisassemble_buffer(uint8_t* bytecode_buffer, size_t buffer_size, FILE* fp)
 {
+    assert(bytecode_buffer);
+    assert(fp);
+
     size_t buffer_index = 0;
     int instruction_size = 0;
 
@@ -35,7 +38,8 @@ int fdisassemble_buffer(uint8_t* bytecode_buffer, size_t buffer_size, FILE* fp)
 
 int sdisassemble_instruction(uint8_t* bytecode, size_t size, char* disasm_array)
 {
-    assert(bytecode != NULL);
+    assert(bytecode);
+    assert(disasm_array); //TODO size
 
     uint8_t opcode = *bytecode;
     switch (opcode & (uint8_t)~(uint8_t)ARG_TYPE_OPCODE_MASK)
