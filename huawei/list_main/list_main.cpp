@@ -5,26 +5,31 @@
 
 int main(void)
 {
-    List list;
-    List_init(&list, 32);
+    CircularListIterator iter = {};
+    CircularListIterator_init(&iter);
 
-    List_dump(&list, stderr);
-
-    size_t ind = 0;
-    for (int i = 0; i < 5; ++i)
+    if (CircularListIterator_insert_after(&iter, 0) != ITERATOR_OK)
     {
-        fprintf(stderr, "INSERT pi -> 0\n");
-        List_insert(&list, 0, 3.1415926 + i, &ind);
-        fprintf(stderr, "index = %zu\n", ind);
-        List_dump(&list, stderr);
+        fprintf(stderr, "Ошибка!\n");
     }
-    for (int i = 0; i < 5; ++i)
+    for (int i = 1; i < 100; ++i)
     {
-        fprintf(stderr, "DELETE 0\n");
-        List_delete(&list, i);
-        List_dump(&list, stderr);
+        CircularListIterator_insert_after(&iter, (double)i + 3.14);
     }
+    CircularListIterator_insert_after(&iter, 1.5);
+    CircularListIterator_insert_after(&iter, 2);
 
-    List_destroy(&list);
+    CircularListIterator_dump(&iter, "/tmp/");
+
+    CircularListIterator_next(&iter);
+    fprintf(stderr, "LAST_ELEM_NEXT = %ld\n", iter.last_element.next_phys_index);
+
+    CircularListIterator_delete_next(&iter);
+
+    CircularListIterator_dump(&iter, "/tmp/");
+
+
+    CircularListIterator_destroy(&iter);
+
     return 0;
 }

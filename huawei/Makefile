@@ -12,7 +12,7 @@ TEST_SUBDIRS_CLEAN=$(addprefix clean/, $(TEST_SUBDIRS))
 INCLUDE=$(abspath $(shell find . -type d))
 INCLUDE_PARAMS=$(foreach d, $(INCLUDE), -I$d)
 
-LIBS=sdl2
+LIBS=sdl2 libgvc
 
 .EXPORT_ALL_VARIABLES:
 

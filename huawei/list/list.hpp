@@ -16,40 +16,57 @@ enum ListStatusType
     LIST_INDEX_INVALID
 };
 
+enum IteratorStatusType
+{
+    ITERATOR_OK,
+    ITERATOR_STOP,
+    ITERATOR_INIT_ERROR,
+    ITERATOR_INVALID
+};
 
-struct ListNode
+
+struct _ListNode
 {
     list_elem_type value;
     ssize_t prev_phys_index;
     ssize_t next_phys_index;
 };
 
-struct List 
+struct _CircularList 
 {
-    ListNode *data;
+    _ListNode *data;
 
-    ssize_t head_phys_index;
     ssize_t free_head_phys_index;
     
     size_t capacity;
     size_t size;
+
+    int hash;
 };
 
+struct CircularListIterator
+{
+    _CircularList* list;
+    _ListNode last_element;
+    IteratorStatusType last_iteration_status;
 
-int List_init(List *list, size_t initial_capacity);
-int List_destroy(List *list);
+    int hash;
+};
 
-ListStatusType List_verify(List *list);
-int List_dump(List *list, FILE* fp);
+IteratorStatusType CircularListIterator_init(CircularListIterator* iter);
+IteratorStatusType CircularListIterator_destroy(CircularListIterator* iter);
 
+IteratorStatusType CircularListIterator_verify(CircularListIterator* iter);
+IteratorStatusType CircularListIterator_dump(CircularListIterator* iter, const char* directory);
 
-ListStatusType List_insert(List *list, size_t phys_index, list_elem_type element, size_t *dst_phys_index);
-ListStatusType List_delete(List *list, size_t phys_index);
+list_elem_type CircularListIterator_next(CircularListIterator* iter);
+list_elem_type CircularListIterator_prev(CircularListIterator* iter);
 
-ListStatusType List_get(List *list, size_t phys_index, list_elem_type *dst);
+IteratorStatusType CircularListIterator_insert_after(CircularListIterator* iter, list_elem_type element);
+IteratorStatusType CircularListIterator_insert_before(CircularListIterator* iter, list_elem_type element);
 
-
-
+IteratorStatusType CircularListIterator_delete_next(CircularListIterator* iter);
+IteratorStatusType CircularListIterator_delete_prev(CircularListIterator* iter);
 
 
 
