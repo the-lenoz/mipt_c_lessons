@@ -280,7 +280,7 @@ int _CircularList_fit_size(_CircularList* list)
     {
         size_t old_capacity = list->capacity;
         size_t new_capacity = _CircularList_get_enough_size(list);
-        printf("RESIZING! %zu\n", new_capacity * sizeof(_ListNode));
+        //printf("RESIZING! %zu\n", new_capacity * sizeof(_ListNode));
         _ListNode* list_data_backup = list->data;
 
         list->data = (_ListNode*) realloc(list->data, new_capacity * sizeof(_ListNode));
@@ -418,7 +418,7 @@ ListStatusType _CircularList_delete(_CircularList *list, size_t phys_index)
         return LIST_STRUCTURE_INVALID;
     }
 
-    if (phys_index >= list->size)
+    if (phys_index >= list->size || phys_index == 0)
     {
         return LIST_INDEX_INVALID;
     }
@@ -635,6 +635,9 @@ IteratorStatusType CircularListIterator_insert_after(CircularListIterator *iter,
         return {};
     }
 
+    CircularListIterator_prev(iter);
+    CircularListIterator_next(iter);
+
     return status;
 }
 IteratorStatusType CircularListIterator_insert_before(CircularListIterator *iter, list_elem_type element)
@@ -657,6 +660,9 @@ IteratorStatusType CircularListIterator_insert_before(CircularListIterator *iter
         iter->last_iteration_status = ITERATOR_STOP;
         return {};
     }
+
+    CircularListIterator_next(iter);
+    CircularListIterator_prev(iter);
 
     return status;
 }
@@ -681,6 +687,9 @@ IteratorStatusType CircularListIterator_delete_next(CircularListIterator *iter)
         return {};
     }
 
+    CircularListIterator_prev(iter);
+    CircularListIterator_next(iter);
+
     return status;
 }
 IteratorStatusType CircularListIterator_delete_prev(CircularListIterator *iter)
@@ -702,6 +711,9 @@ IteratorStatusType CircularListIterator_delete_prev(CircularListIterator *iter)
         iter->last_iteration_status = ITERATOR_STOP;
         return {};
     }
+
+    CircularListIterator_next(iter);
+    CircularListIterator_prev(iter);
 
     return status;
 }
