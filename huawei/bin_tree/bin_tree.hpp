@@ -1,0 +1,8 @@
+#ifndef BIN_TREE_DECLARED
+#define BIN_TREE_DECLARED
+
+
+
+
+
+#endif // BIN_TREE_DECLARED

@@ -26,27 +26,14 @@
 #define MAX_FILE_PATH_LEN   512
 
 
-int _CircularList_init(_CircularList *list, size_t initial_capacity);
-int _CircularList_destroy(_CircularList *list);
+static int CircularList_fit_size(CircularList *list);
+static int CircularList_is_fit_size(CircularList *list);
+static size_t CircularList_get_enough_size(CircularList *list);
 
-ListStatusType _CircularList_verify(_CircularList *list);
-int _CircularList_dump(_CircularList *list, FILE* fp);
-int _CircularList_dump_graph(_CircularList *list, FILE *fp);
-
-static int _CircularList_fit_size(_CircularList* list);
-static int _CircularList_is_fit_size(_CircularList* list);
-static size_t _CircularList_get_enough_size(_CircularList* list);
+static int CircularList_check_iterator(CircularList *list, iterator_t *iter);
 
 
-
-ListStatusType _CircularList_insert_after(_CircularList *list, size_t phys_index, list_elem_type element, size_t *dst_phys_index);
-ListStatusType _CircularList_insert_before(_CircularList *list, size_t phys_index, list_elem_type element, size_t *dst_phys_index);
-ListStatusType _CircularList_delete(_CircularList *list, size_t phys_index);
-
-ListStatusType _CircularList_get(_CircularList *list, size_t phys_index, list_elem_type *dst);
-
-
-int _CircularList_init(_CircularList *list, size_t initial_capacity)
+int CircularList_init(CircularList *list, size_t initial_capacity)
 {
     assert(list != NULL);
 
@@ -77,7 +64,7 @@ int _CircularList_init(_CircularList *list, size_t initial_capacity)
     return 0;
 }
 
-int _CircularList_destroy(_CircularList *list)
+int CircularList_destroy(CircularList *list)
 {
     if (list == NULL)
     {
@@ -95,7 +82,7 @@ int _CircularList_destroy(_CircularList *list)
 }
 
 
-ListStatusType _CircularList_verify(_CircularList *list)
+ListStatusType CircularList_verify(CircularList *list)
 {
     ListStatusType status = LIST_OKAY;
 
@@ -109,9 +96,15 @@ ListStatusType _CircularList_verify(_CircularList *list)
     return status;
 }
 
-int _CircularList_dump(_CircularList *list, FILE *fp)
+int CircularList_dump(CircularList *list, const char *directory)
 {
-    assert(fp != NULL);
+    assert(directory != NULL);
+
+    char log_file_path[MAX_FILE_PATH_LEN + 1] = {};
+
+    snprintf(log_file_path, MAX_FILE_PATH_LEN, "%s/log_%lu_%d.html", directory, (unsigned long)time(NULL), rand());
+
+    FILE *fp = fopen(log_file_path, "w");
 
     fprintf(fp, HTML_DUMP_START_FORMAT, "Circular list dump");
 
@@ -138,14 +131,16 @@ int _CircularList_dump(_CircularList *list, FILE *fp)
                 "  capacity=%zu,\n"
                 "  size=%zu\n}\n\n", list->free_head_phys_index, list->capacity, list->size);
     
-    _CircularList_dump_graph(list, fp);
+    CircularList_dump_graph(list, fp);
             
     fprintf(fp, HTML_DUMP_END);
+
+    fclose(fp);
 
     return 0;
 }
 
-int _CircularList_dump_graph(_CircularList *list, FILE *fp)
+int CircularList_dump_graph(CircularList *list, FILE *fp)
 {
     assert(fp != NULL);
 
@@ -168,7 +163,7 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
         return -1;
     }
     
-    agset(g, "rankdir", "TB");
+    agset(g, "rankdir", "LR");
 
     agset(g, "bgcolor", "#EFEFEF"); 
     agset(g, "label", "CircularList DUMP"); 
@@ -178,10 +173,14 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
     agattr(g, AGNODE, "fillcolor", "red"); 
     agattr(g, AGEDGE, "color", "gray40"); 
     agattr(g, AGEDGE, "fontname", "Arial"); 
-
+    
     _ListNode node = {};
     Agnode_t **graph_nodes = (Agnode_t**)calloc(list->capacity, sizeof(Agnode_t*));
 
+    Agraph_t *samerank_g = agsubg(g, "same_rank", 1);
+    agset(samerank_g, "rank", "same");
+
+    
     char node_label_str[MAX_NODE_LABEL_LEN + 1] = {};
     char node_name_str[MAX_NODE_NAME_LEN + 1] = {};
 
@@ -195,6 +194,7 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
         agset(graph_nodes[i], "label", node_label_str);
         agset(graph_nodes[i], "shape", "record");
         agset(graph_nodes[i], "fillcolor", i > 0 ? (node.prev_phys_index == -1 ? "magenta" : "#777777" ) : "orange");
+        agsubnode(samerank_g, graph_nodes[i], 1);
     }
 
     
@@ -207,12 +207,14 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
         {
             edge = agedge(g, graph_nodes[i], graph_nodes[i + 1], NULL, 1);
             agset(edge, "color", "#ffffff");
+	    agset(edge, "weight", "100");
         }
 
         if ((size_t)node.next_phys_index < list->capacity)
         {
             edge = agedge(g, graph_nodes[i], graph_nodes[(size_t)node.next_phys_index], NULL, 1);
             agset(edge, "color", "green");
+	    agset(edge, "weight", "2");
         }
         else
         {
@@ -224,6 +226,7 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
         {
             edge = agedge(g, graph_nodes[i], graph_nodes[(size_t)node.prev_phys_index], NULL, 1);
             agset(edge, "color", "yellow");
+	    agset(edge, "weight", "2");
         }
         else if (node.prev_phys_index != -1)
         {
@@ -249,7 +252,7 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
     char *svg_data = NULL;
     size_t length = 0;
     
-    int render_result = gvRenderData(gvc, g, "svg", &svg_data, &length);
+    int render_result = gvRenderData(gvc, g, "dot", &svg_data, &length);
     
     gvFreeLayout(gvc, g);
 
@@ -268,22 +271,22 @@ int _CircularList_dump_graph(_CircularList *list, FILE *fp)
 }
 
 
-int _CircularList_fit_size(_CircularList* list)
+int CircularList_fit_size(CircularList *list)
 {
-    ListStatusType status = _CircularList_verify(list);
+    ListStatusType status = CircularList_verify(list);
     if (status != LIST_OKAY)
     {
         return -1;
     }
 
-    if (!_CircularList_is_fit_size(list))
+    if (!CircularList_is_fit_size(list))
     {
         size_t old_capacity = list->capacity;
-        size_t new_capacity = _CircularList_get_enough_size(list);
-        //printf("RESIZING! %zu\n", new_capacity * sizeof(_ListNode));
-        _ListNode* list_data_backup = list->data;
+        size_t new_capacity = CircularList_get_enough_size(list);
+        //printf("RESIZING! %zu\n", new_capacity  *sizeof(_ListNode));
+        _ListNode *list_data_backup = list->data;
 
-        list->data = (_ListNode*) realloc(list->data, new_capacity * sizeof(_ListNode));
+        list->data = (_ListNode*) realloc(list->data, new_capacity *sizeof(_ListNode));
         
         list->capacity = new_capacity;
 
@@ -304,246 +307,149 @@ int _CircularList_fit_size(_CircularList* list)
     return 0;
 }
 
-static int _CircularList_is_fit_size(_CircularList* list)
+static int CircularList_is_fit_size(CircularList *list)
 {
     return list->size <= list->capacity - 3;
 }
 
-static size_t _CircularList_get_enough_size(_CircularList* list)
+static size_t CircularList_get_enough_size(CircularList *list)
 {
-    return list->size * 2 + 3;
+    return list->size  *2 + 3;
 }
 
 
-ListStatusType _CircularList_insert_after(_CircularList *list, size_t phys_index, list_elem_type element, size_t *dst_phys_index)
+static inline int CircularList_check_iterator(CircularList *list, iterator_t *iter)
+{
+    return list != NULL && iter != NULL && ((size_t)(*iter) <= list->size);
+}
+
+
+ListStatusType CircularList_copy_iterator(CircularList *list, iterator_t *src, iterator_t *dst)
+{
+    assert(list);
+    assert(src);
+    assert(dst);
+    ListStatusType status = CircularList_verify(list);
+    if (status != LIST_OKAY) return status;
+
+    *dst = *src;
+
+    return LIST_OKAY;
+}
+
+iterator_t CircularList_get_null_iterator(CircularList* list)
+{
+    assert(list);
+    return 0;
+}
+
+
+
+ListStatusType CircularList_insert_after(CircularList *list, iterator_t *iter, list_elem_type element)
 {
     assert(list != NULL);
-    assert(dst_phys_index != NULL);
-
-    ListStatusType list_status = _CircularList_verify(list);
-    if (list_status != LIST_OKAY)
-    {
-        return list_status;
-    }
-
-    if (_CircularList_fit_size(list) == -1)
-    {
-        return LIST_STRUCTURE_INVALID;
-    }
-
-    if (phys_index < 0 || phys_index >= list->size)
-    {
-        return LIST_INDEX_INVALID;
-    }
-
-    *dst_phys_index = list->free_head_phys_index;
-
-    //if ((ssize_t)phys_index == list->head_phys_index)
-    //{
-    //    list->head_phys_index = *dst_phys_index;
-    //}
-
-    list->free_head_phys_index = list->data[list->free_head_phys_index].next_phys_index;
-
-
-    list->data[*dst_phys_index] = {};
-
-    list->data[*dst_phys_index].next_phys_index=list->data[phys_index].next_phys_index;
-    list->data[*dst_phys_index].prev_phys_index=phys_index;
-    list->data[*dst_phys_index].value=element;
-
-    list->data[list->data[phys_index].next_phys_index].prev_phys_index = *dst_phys_index; // Перешиваем
-    list->data[phys_index].next_phys_index = *dst_phys_index; 
-
-    list->size++;
-
-    return list_status;
-}
-
-ListStatusType _CircularList_insert_before(_CircularList *list, size_t phys_index, list_elem_type element, size_t *dst_phys_index)
-{
-    assert(list != NULL);
-    assert(dst_phys_index != NULL);
-
-
-    ListStatusType list_status = _CircularList_verify(list);
-    if (list_status != LIST_OKAY)
-    {
-        return list_status;
-    }
-
-    if (_CircularList_fit_size(list) == -1)
-    {
-        return LIST_STRUCTURE_INVALID;
-    }
-
-    if (phys_index < 0 || phys_index > list->size)
-    {
-
-        return LIST_INDEX_INVALID;
-    }
-
-    *dst_phys_index = list->free_head_phys_index;
-
-    list->free_head_phys_index = list->data[list->free_head_phys_index].next_phys_index;
-
-
-    list->data[*dst_phys_index] = {};
-
-    list->data[*dst_phys_index].next_phys_index=phys_index;
-    list->data[*dst_phys_index].prev_phys_index=list->data[phys_index].prev_phys_index;
-    list->data[*dst_phys_index].value=element;
-
-    list->data[list->data[phys_index].prev_phys_index].next_phys_index = *dst_phys_index; // Перешиваем
-    list->data[phys_index].prev_phys_index = *dst_phys_index;
-
-    list->size++;
-
-
-    return list_status;
-}
-
-ListStatusType _CircularList_delete(_CircularList *list, size_t phys_index)
-{
-    assert(list!= NULL);
-
-    ListStatusType list_status = _CircularList_verify(list);
-    if (list_status != LIST_OKAY)
-    {
-        return list_status;
-    }
-
-    if (_CircularList_fit_size(list) == -1)
-    {
-        return LIST_STRUCTURE_INVALID;
-    }
-
-    if (phys_index >= list->size || phys_index == 0)
-    {
-        return LIST_INDEX_INVALID;
-    }
-
-    //if ((ssize_t)phys_index == list->head_phys_index)
-    //{
-    //    list->head_phys_index = list->data[phys_index].next_phys_index;
-    //}
-
-    list->data[list->data[phys_index].prev_phys_index].next_phys_index = list->data[phys_index].next_phys_index; // Перешиваем
-    list->data[list->data[phys_index].next_phys_index].prev_phys_index = list->data[phys_index].prev_phys_index;
-
-    list->data[phys_index].next_phys_index = list->free_head_phys_index;
-    list->data[phys_index].prev_phys_index = -1;
-    list->data[phys_index].value = NAN;
-    
-    list->free_head_phys_index = phys_index;
-
-    list->size--;
-
-    
-
-    return list_status;
-}
-
-
-ListStatusType _CircularList_get(_CircularList *list, size_t phys_index, _ListNode *dst)
-{
-    assert(list != NULL);
-
-    ListStatusType list_status = _CircularList_verify(list);
-    if (list_status != LIST_OKAY)
-    {
-        return list_status;
-    }
-
-    if (_CircularList_fit_size(list) == -1)
-    {
-        return LIST_STRUCTURE_INVALID;
-    }
-
-    if (phys_index >= list->size)
-    {
-        return LIST_INDEX_INVALID;
-    }
-
-    if (list->data[phys_index].prev_phys_index == -1)
-    {
-        return LIST_INDEX_INVALID;
-    }
-
-    *dst = list->data[phys_index];
-
-    return list_status;
-}
-
-
-
-IteratorStatusType CircularListIterator_init(CircularListIterator *iter)
-{
     assert(iter != NULL);
 
-    *iter = {};
+    ListStatusType list_status = CircularList_verify(list);
+    if (list_status != LIST_OKAY) return list_status;
+
+    CircularList_fit_size(list);
+
+    if (!CircularList_check_iterator(list, iter))
+    {
+        return LIST_INDEX_INVALID;
+    }
+
+    size_t index = list->free_head_phys_index;
+
+    list->free_head_phys_index = list->data[list->free_head_phys_index].next_phys_index;
+
+
+    list->data[index] = {};
+
+    list->data[index].next_phys_index=list->data[*iter].next_phys_index;
+    list->data[index].prev_phys_index=*iter;
+    list->data[index].value=element;
+
+    list->data[list->data[*iter].next_phys_index].prev_phys_index = index; // Перешиваем
+    list->data[*iter].next_phys_index = index; 
+
+    list->size++;
+
+    return list_status;
+}
+
+ListStatusType CircularList_delete(CircularList *list, iterator_t *iter)
+{
+    assert(list);
+    assert(iter);
+
+    ListStatusType list_status = CircularList_verify(list);
+    if (list_status != LIST_OKAY) return list_status;
+
+    CircularList_fit_size(list);
+
+    if (!CircularList_check_iterator(list, iter) || *iter == 0) return LIST_INDEX_INVALID;
+
+
+    list->data[list->data[*iter].prev_phys_index].next_phys_index = list->data[*iter].next_phys_index; // Перешиваем
+    list->data[list->data[*iter].next_phys_index].prev_phys_index = list->data[*iter].prev_phys_index;
+
+    list->data[*iter].next_phys_index = list->free_head_phys_index;
+    list->data[*iter].prev_phys_index = -1;
+    list->data[*iter].value = NAN;
     
-    iter->list = (_CircularList*) calloc(1, sizeof(*iter->list));
+    list->free_head_phys_index = *iter;
 
-    if (iter->list == NULL)
-    {
-        return ITERATOR_INIT_ERROR;
-    }
+    list->size--;    
 
-    if (_CircularList_init(iter->list, INITIAL_LIST_CAPACITY) == -1)
-    {
-        return ITERATOR_INIT_ERROR;
-    }
-
-    if (_CircularList_get(iter->list, 0, &iter->last_element) != LIST_OKAY)
-    {
-        return ITERATOR_INIT_ERROR;
-    }
-
-    srand(time(NULL));
-
-    iter->last_iteration_status = ITERATOR_OK;
-
-
-    return ITERATOR_OK;
+    return list_status;
 }
-IteratorStatusType CircularListIterator_destroy(CircularListIterator *iter)
+
+
+list_elem_type CircularList_next(CircularList *list, iterator_t *iter, ListStatusType *status)
 {
-    IteratorStatusType status = ITERATOR_OK;
+    assert(list);
+    assert(iter);
 
-    if (iter == NULL)
+    ListStatusType st = LIST_OKAY;
+    status = status ? status : &st;
+
+    if ((*status = CircularList_verify(list)) != LIST_OKAY) return NAN; // ONLY DOUBLE
+
+    if (!CircularList_check_iterator(list, iter))
     {
-        return ITERATOR_INVALID;
+        *status = LIST_INDEX_INVALID;
+	return NAN;
     }
 
-    if (iter->list != NULL)
-    {
-        _CircularList_destroy(iter->list);
-        free(iter->list);
-    }
-    else
-    {
-        status = ITERATOR_INVALID;
-    }
+    *iter = list->data[*iter].next_phys_index;
 
-    *iter = {};
-
-    return status;
+    return list->data[*iter].value;
 }
 
-IteratorStatusType CircularListIterator_verify(CircularListIterator *iter)
+list_elem_type CircularList_prev(CircularList *list, iterator_t *iter, ListStatusType *status)
 {
-    if (iter == NULL ||
-        iter->list == NULL ||
-        _CircularList_verify(iter->list) != LIST_OKAY)
+    assert(list);
+    assert(iter);
+
+    ListStatusType st = LIST_OKAY;
+    status = status ? status : &st;
+
+    if ((*status = CircularList_verify(list)) != LIST_OKAY) return NAN; // ONLY DOUBLE
+
+    if (!CircularList_check_iterator(list, iter))
     {
-        return ITERATOR_INVALID;
+        *status = LIST_INDEX_INVALID;
+	return NAN;
     }
 
-    // TODO (check hash)
+    *iter = list->data[*iter].prev_phys_index;
 
-    return ITERATOR_OK;
+    return list->data[*iter].value;
 }
+
+/*
 IteratorStatusType CircularListIterator_dump(CircularListIterator *iter, const char *directory)
 {
     assert(directory != NULL);
@@ -552,7 +458,7 @@ IteratorStatusType CircularListIterator_dump(CircularListIterator *iter, const c
 
     snprintf(log_file_path, MAX_FILE_PATH_LEN, "%s/log_%lu_%d.html", directory, (unsigned long)time(NULL), rand());
 
-    FILE* fp = fopen(log_file_path, "w");
+    FILE *fp = fopen(log_file_path, "w");
 
     if (iter == NULL)
     {
@@ -560,161 +466,10 @@ IteratorStatusType CircularListIterator_dump(CircularListIterator *iter, const c
     }
     else 
     {
-        _CircularList_dump(iter->list, fp);
+        CircularList_dump(iter->list, fp);
     }
 
     fclose(fp);
 
     return CircularListIterator_verify(iter);
-}
-
-list_elem_type CircularListIterator_next(CircularListIterator *iter)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-    _ListNode node = {};
-    ListStatusType list_status = _CircularList_get(iter->list, iter->last_element.next_phys_index, &node);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    iter->last_element = node;
-
-    return node.value;
-}
-list_elem_type CircularListIterator_prev(CircularListIterator *iter)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-    _ListNode node = {};
-    ListStatusType list_status = _CircularList_get(iter->list, iter->last_element.prev_phys_index, &node);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    iter->last_element = node;
-
-    return node.value;
-}
-
-
-IteratorStatusType CircularListIterator_insert_after(CircularListIterator *iter, list_elem_type element)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-
-
-    ListStatusType list_status = LIST_OKAY;
-    size_t dst_phys_index = 0;
-    list_status = _CircularList_insert_before(iter->list, iter->last_element.next_phys_index, element, &dst_phys_index);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    CircularListIterator_prev(iter);
-    CircularListIterator_next(iter);
-
-    return status;
-}
-IteratorStatusType CircularListIterator_insert_before(CircularListIterator *iter, list_elem_type element)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-
-
-    ListStatusType list_status = LIST_OKAY;
-    size_t dst_phys_index = 0;
-    list_status = _CircularList_insert_after(iter->list, iter->last_element.prev_phys_index, element, &dst_phys_index);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    CircularListIterator_next(iter);
-    CircularListIterator_prev(iter);
-
-    return status;
-}
-
-IteratorStatusType CircularListIterator_delete_next(CircularListIterator *iter)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-
-
-    ListStatusType list_status = LIST_OKAY;
-    list_status = _CircularList_delete(iter->list, iter->last_element.next_phys_index);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    CircularListIterator_prev(iter);
-    CircularListIterator_next(iter);
-
-    return status;
-}
-IteratorStatusType CircularListIterator_delete_prev(CircularListIterator *iter)
-{
-    assert(iter != NULL);
-    IteratorStatusType status = CircularListIterator_verify(iter);
-    if (status != ITERATOR_OK)
-    {
-        iter->last_iteration_status = status;
-        return {};
-    }
-
-
-    ListStatusType list_status = LIST_OKAY;
-    list_status = _CircularList_delete(iter->list, iter->last_element.prev_phys_index);
-
-    if (list_status != LIST_OKAY)
-    {
-        iter->last_iteration_status = ITERATOR_STOP;
-        return {};
-    }
-
-    CircularListIterator_next(iter);
-    CircularListIterator_prev(iter);
-
-    return status;
-}
-
+}*/

@@ -5,31 +5,42 @@
 
 int main(void)
 {
-    CircularListIterator iter = {};
-    CircularListIterator_init(&iter);
+    CircularList list;
+    CircularList_init(&list, 128);
+    iterator_t iter = CircularList_get_null_iterator(&list);
 
-    if (CircularListIterator_insert_after(&iter, 0) != ITERATOR_OK)
+    CircularList_dump(&list, "/tmp/");
+    printf("dump1; iter=%d\n", iter);
+    getchar();
+
+    for (double i = 0.123; i < 123; i += 1)
     {
-        fprintf(stderr, "Ошибка!\n");
+        if (CircularList_insert_after(&list, &iter, i) != LIST_OKAY) return -fprintf(stderr, "ERROR!\n");
+	CircularList_next(&list, &iter);
     }
-    for (int i = 1; i < 100; ++i)
+
+    CircularList_dump(&list, "/tmp/");
+
+    //printf("dumpd; added: %lf, iter: %d\n", CircularList_next(&list, &iter), iter);
+    //getchar();
+
+    iter = CircularList_get_null_iterator(&list);
+    iterator_t tmp_iter = {};
+    for (int i = 0; i < 40; ++i)
     {
-        CircularListIterator_insert_after(&iter, (double)i + 3.14);
+	CircularList_next(&list, &iter);
+
+	printf("ITER: %ld\n", iter);
+	CircularList_copy_iterator(&list, &iter, &tmp_iter);
+	CircularList_next(&list, &iter);
+        if (CircularList_delete(&list, &tmp_iter) != LIST_OKAY) return -fprintf(stderr, "error deleting\n");
     }
-    CircularListIterator_insert_after(&iter, 1.5);
-    CircularListIterator_insert_after(&iter, 2);
 
-    CircularListIterator_dump(&iter, "/tmp/");
+    CircularList_dump(&list, "/tmp/");
 
-    CircularListIterator_next(&iter);
-    fprintf(stderr, "LAST_ELEM_NEXT = %ld\n", iter.last_element.next_phys_index);
+    CircularList_destroy(&list);
 
-    CircularListIterator_delete_next(&iter);
-
-    CircularListIterator_dump(&iter, "/tmp/");
-
-
-    CircularListIterator_destroy(&iter);
+    printf("dump3,finish; iter=%d\n", iter);
 
     return 0;
 }
